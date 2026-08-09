@@ -14,9 +14,8 @@ Provide one consistent environment where an AI agent (or you) can build, run, te
 
 ```
 .devcontainer/   Development container: compose, Dockerfile, post-create
-backend/         Go module (API on :8080) + auxiliary scripts (scripts/sh)
-frontend/        React + TypeScript (Vite on :5173)
-deploy/          Production: Dockerfiles (docker/) and docker-compose.yml
+backend/         Go module (API on :8080) + production Dockerfile + auxiliary scripts (scripts/sh)
+frontend/        React + TypeScript (Vite on :5173) + production Dockerfile
 Makefile         Task entry point
 AGENTS.md        Instructions for AI coding agents
 init.sh          Interactive configurator
@@ -66,24 +65,22 @@ All values live in `.devcontainer/devcontainer.json` (`containerEnv`) and `.devc
 
 ### Reuse in an existing project
 
-Copy `.devcontainer/`, `deploy/`, `Makefile`, and `AGENTS.md` into any project that follows the `backend/` + `frontend/` layout. The post-create script skips every step whose result already exists (`.git`, `go.mod`).
+Copy `.devcontainer/`, `Makefile`, and `AGENTS.md` into any project that follows the `backend/` + `frontend/` layout. The post-create script skips every step whose result already exists (`.git`, `go.mod`).
 
 ## Development vs Production
 
-|               | Development                                                               | Production                                                        |
-| ------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Compose       | `.devcontainer/docker-compose.yml`                                        | `deploy/docker-compose.yml`                                       |
-| Backend image | `mcr.microsoft.com/devcontainers/go` (prebuilt, MCR)                      | `deploy/docker/backend.Dockerfile` (multi-stage Alpine, non-root) |
-| Frontend      | Vite dev server on :5173                                                  | `deploy/docker/frontend.Dockerfile` (nginx, non-root)             |
-| Node.js       | Copied from the official `node` image on Docker Hub (multi-stage, no nvm) | Official `node` image (build stage only)                          |
+|               | Development                                                               | Production                                              |
+| ------------- | ------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Backend image | `mcr.microsoft.com/devcontainers/go` (prebuilt, MCR)                      | `backend/Dockerfile` (multi-stage Alpine, non-root)      |
+| Frontend      | Vite dev server on :5173                                                  | `frontend/Dockerfile` (nginx, non-root)                  |
+| Node.js       | Copied from the official `node` image on Docker Hub (multi-stage, no nvm) | Official `node` image (build stage only)                 |
 
-The production Dockerfiles live in `deploy/docker/` but keep `backend/` and `frontend/` as build contexts, so `COPY` paths inside them are unchanged:
+The production Dockerfiles live directly in `backend/` and `frontend/`, so each build's context matches the folder it's building:
 
 ```sh
-docker build -f deploy/docker/backend.Dockerfile  -t myapp-api:1.0.0 backend/
-docker build -f deploy/docker/frontend.Dockerfile -t myapp-web:1.0.0 frontend/
+docker build -f backend/Dockerfile  -t myapp-api:1.0.0 backend/
+docker build -f frontend/Dockerfile -t myapp-web:1.0.0 frontend/
 # or: make back-build / make front-build-image
-# or: docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
 ## Makefile Targets

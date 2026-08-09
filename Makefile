@@ -8,12 +8,12 @@ help:
 	@echo "  back-run           Run the Go backend (backend/)"
 	@echo "  back-test          Run backend tests"
 	@echo "  back-lint          Run golangci-lint on the backend"
-	@echo "  back-build         Build production backend image (deploy/docker/backend.Dockerfile)"
+	@echo "  back-build         Build production backend image (backend/Dockerfile)"
 	@echo "  front-dev          Start the Vite dev server (frontend/)"
 	@echo "  front-test         Run frontend tests"
 	@echo "  front-lint         Run frontend lint"
 	@echo "  front-build        Build the frontend for production (dist/)"
-	@echo "  front-build-image  Build production frontend image (deploy/docker/frontend.Dockerfile)"
+	@echo "  front-build-image  Build production frontend image (frontend/Dockerfile)"
 	@echo "  dev                Run backend and frontend together"
 	@echo "  test               Run all tests (backend + frontend)"
 	@echo "  lint               Run all linters (backend + frontend)"
@@ -32,7 +32,7 @@ back-lint:
 
 .PHONY: back-build
 back-build:
-	@docker build -f deploy/docker/backend.Dockerfile \
+	@docker build -f backend/Dockerfile \
 		--build-arg APP_NAME=$(PROJECT_NAME) \
 		-t $(PROJECT_NAME)-api:$(VERSION) backend/
 
@@ -54,7 +54,7 @@ front-build:
 
 .PHONY: front-build-image
 front-build-image:
-	@docker build -f deploy/docker/frontend.Dockerfile \
+	@docker build -f frontend/Dockerfile \
 		--build-arg PROJECT_NAME=$(PROJECT_NAME) \
 		-t $(PROJECT_NAME)-web:$(VERSION) frontend/
 

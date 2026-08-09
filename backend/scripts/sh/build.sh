@@ -15,11 +15,10 @@ TAG="${IMAGE_NAME}:${VERSION}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-REPO_ROOT="$(cd "$BACKEND_DIR/.." && pwd)"
 
 echo "Building Docker image: $TAG"
 
-docker build -f "$REPO_ROOT/deploy/docker/backend.Dockerfile" \
+docker build -f "$BACKEND_DIR/Dockerfile" \
   --build-arg APP_NAME="$IMAGE_NAME" \
   -t "$TAG" \
   "$BACKEND_DIR"

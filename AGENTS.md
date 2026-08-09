@@ -5,9 +5,8 @@ Guidance for AI coding agents (Claude Code, etc.) working in this repository.
 ## Repository layout
 
 ```
-backend/       Go application (module name = $PROJECT_NAME from devcontainer.json)
-frontend/      React application (Vite; package manager = $PKG_MANAGER from devcontainer.json)
-deploy/        Production artifacts: Dockerfiles (deploy/docker/) and docker-compose.yml
+backend/       Go application (module name = $PROJECT_NAME from devcontainer.json) + production Dockerfile
+frontend/      React application (Vite; package manager = $PKG_MANAGER from devcontainer.json) + production Dockerfile
 Makefile       Entry point for all common tasks
 ```
 
@@ -34,7 +33,7 @@ Both toolchains (Go and Node.js) are available in this single container. You can
 - Frontend is TypeScript + TSX; run `$PKG_MANAGER run typecheck` inside `frontend/` to type-check via `tsconfig.json`.
 - Lint before finishing any task: `make lint`.
 - `gopls` ignores `frontend/` (see `.devcontainer/devcontainer.json`), so Go tooling stays fast.
-- Production Dockerfiles live in `deploy/docker/`, but their build contexts are `backend/` and `frontend/` files referenced by `COPY` must exist inside those folders.
+- Production Dockerfiles live directly in `backend/Dockerfile` and `frontend/Dockerfile`, matching their own build context — files referenced by `COPY` must exist inside those folders.
 
 ## Caches (do not delete)
 
