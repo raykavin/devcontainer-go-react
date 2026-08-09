@@ -1,51 +1,51 @@
-# Instruções específicas — Go
+# Specific instructions — Go
 
-Complementa `AGENTS.md` e `backend-development-standard.md`.
+Complements `AGENTS.md` and `backend-development-standard.md`.
 
-## Versão e módulo
+## Version and module
 
-- Go 1.26.x é a versão alvo deste template.
-- Módulo Go Modules nativo (`go.mod`/`go.sum`); sem vendoring.
-- `replace` local para bibliotecas próprias ainda não publicadas é aceitável (ex.: `replace github.com/raykavin/gocnab => ./pkg/gocnab`) — mas prefira publicar como módulo versionado (tag semver) assim que estabilizar.
+- Go 1.26.x is this template's target version.
+- Native Go Modules (`go.mod`/`go.sum`); no vendoring.
+- A local `replace` for your own not-yet-published libraries is acceptable (e.g., `replace github.com/raykavin/gocnab => ./pkg/gocnab`) — but prefer publishing as a versioned module (semver tag) once it stabilizes.
 
-## gobox — biblioteca de plataforma, verificar antes de reimplementar
+## gobox — platform library, check before reimplementing
 
-Antes de escrever qualquer um destes, confira o subpacote correspondente em `github.com/raykavin/gobox`:
+Before writing any of these, check the corresponding subpackage in `github.com/raykavin/gobox`:
 
-| Preocupação | Subpacote gobox | Observação |
+| Concern | gobox subpackage | Note |
 |---|---|---|
-| Logging | `logger` | zerolog por baixo, interface tipo logrus |
-| Config | `config` | `Loader[T]` genérico sobre Viper, hot-reload via fsnotify |
-| Servidor HTTP | `httpserver` | embala Gin; `respond/` = envelope de resposta; `middlewares/` = auth/CORS/CSRF/oidcauth |
-| Autenticação OIDC | `oidcauth` | verificação JWT local + introspecção remota, cache plugável |
-| Paginação | `pagination` | `Page`/`Result[T]`/`Query`/`Filter` — `Scope()` é específico para `*gorm.DB` |
-| Banco (GORM) | `database/gorm` | factory de conexão com retry e pool configurável — **não** define `BaseModel`, nem soft delete, nem transação; isso fica a cargo do projeto consumidor |
-| Migrations | `database/migrate` | wrapper sobre `golang-migrate`; só expõe `Migrate()` (Up) e `Populate()` (seeds) |
-| SQL genérico | `database/sql` | `Connector[T]` sobre `database/sql` puro, sem pooling extra, sem transação |
-| Healthcheck | `healthcheck` | probe concorrente via interface `Pinger` |
-| Telemetria | `telemetry` | bootstrap OpenTelemetry (traces OTLP + métricas Prometheus) |
-| Retry | `retry` | função pura `Do(ctx, maxAttempts, backoff, shouldRetry, fn)` |
-| Cliente HTTP | `httpclient` | wrapper fino sobre `net/http` + descompressão |
-| OAuth2 client-credentials | `oauth2` | `TokenManager` com cache de token em memória |
+| Logging | `logger` | zerolog underneath, logrus-like interface |
+| Config | `config` | generic `Loader[T]` over Viper, hot-reload via fsnotify |
+| HTTP server | `httpserver` | wraps Gin; `respond/` = response envelope; `middlewares/` = auth/CORS/CSRF/oidcauth |
+| OIDC authentication | `oidcauth` | local JWT verification + remote introspection, pluggable cache |
+| Pagination | `pagination` | `Page`/`Result[T]`/`Query`/`Filter` — `Scope()` is specific to `*gorm.DB` |
+| Database (GORM) | `database/gorm` | connection factory with retry and configurable pool — does **not** define `BaseModel`, soft delete, or transactions; that's left to the consuming project |
+| Migrations | `database/migrate` | wrapper over `golang-migrate`; only exposes `Migrate()` (Up) and `Populate()` (seeds) |
+| Generic SQL | `database/sql` | `Connector[T]` over plain `database/sql`, no extra pooling, no transaction |
+| Healthcheck | `healthcheck` | concurrent probe via the `Pinger` interface |
+| Telemetry | `telemetry` | OpenTelemetry bootstrap (OTLP traces + Prometheus metrics) |
+| Retry | `retry` | pure function `Do(ctx, maxAttempts, backoff, shouldRetry, fn)` |
+| HTTP client | `httpclient` | thin wrapper over `net/http` + decompression |
+| OAuth2 client-credentials | `oauth2` | `TokenManager` with in-memory token cache |
 
-**Regra de contribuição**: se uma preocupação transversal está sendo reimplementada localmente em vez de importar `gobox` (ex.: envelope de resposta HTTP, verificador OIDC, wrapper de logging), prefira migrar para a lib compartilhada como parte da tarefa — **não decida sozinho fazer uma migração ampla não solicitada**; registre a decisão se a migração for maior que o escopo pedido.
+**Contribution rule**: if a cross-cutting concern is being reimplemented locally instead of importing `gobox` (e.g., HTTP response envelope, OIDC verifier, logging wrapper), prefer migrating to the shared lib as part of the task — **don't decide alone to do a broad, unrequested migration**; record the decision if the migration is bigger than the requested scope.
 
-## Convenções de código
+## Code conventions
 
-- Nome de arquivo: `snake_case.go`. Um arquivo por operação em `usecase/` (`create.go`, `update.go`, `get_by_id.go`, `find_or_create.go`, `filter.go`).
-- Pacotes: nome curto, minúsculo, sem underscore, um conceito por pacote.
-- Erros: sentinelas locais por pacote (`var ErrNotFound = errors.New("...")`), nunca um pacote central de erros/exceções. Wrap com `fmt.Errorf("%w: %w", ErrX, causa)` (double-wrap, Go 1.20+) ou `errors.Join`. No handler HTTP, mapeie explicitamente via `errors.Is`/`errors.As` — nunca deixe cair em 500 por omissão.
-- Generics: usados deliberadamente para tipos de infraestrutura reutilizáveis (`pagination.Result[T]`, `database/sql.Connector[T]`, `config.Loader[T]`) — não force generics em código de domínio/negócio onde não há reuso real.
-- `context.Context` como primeiro parâmetro em toda operação de I/O/rede.
-- Validação de entrada: tags `binding:"required"` do Gin (que usa `go-playground/validator` por baixo). Nunca use a tag `validate:"..."` sozinha fora do fluxo de bind do Gin.
-- Comentários: apenas onde explicam uma decisão não-óbvia (ex.: por que uma coluna não tem FK, por que uma race condition específica foi corrigida de um jeito). Não documente o óbvio.
+- File name: `snake_case.go`. One file per operation in `usecase/` (`create.go`, `update.go`, `get_by_id.go`, `find_or_create.go`, `filter.go`).
+- Packages: short, lowercase name, no underscore, one concept per package.
+- Errors: local sentinels per package (`var ErrNotFound = errors.New("...")`), never a central errors/exceptions package. Wrap with `fmt.Errorf("%w: %w", ErrX, cause)` (double-wrap, Go 1.20+) or `errors.Join`. In the HTTP handler, map explicitly via `errors.Is`/`errors.As` — never let it fall through to 500 by default.
+- Generics: used deliberately for reusable infrastructure types (`pagination.Result[T]`, `database/sql.Connector[T]`, `config.Loader[T]`) — don't force generics into domain/business code where there's no real reuse.
+- `context.Context` as the first parameter in every I/O/network operation.
+- Input validation: Gin's `binding:"required"` tags (which use `go-playground/validator` underneath). Never use the `validate:"..."` tag alone outside Gin's bind flow.
+- Comments: only where they explain a non-obvious decision (e.g., why a column has no FK, why a specific race condition was fixed a certain way). Don't document the obvious.
 
-## Estilo de teste
+## Test style
 
-- Framework: stdlib `testing` é o padrão. `testify` (`assert`/`require`/`mock`) é aceitável quando já em uso no projeto — não introduza em um projeto que hoje só usa stdlib sem necessidade concreta.
-- Nomenclatura: `TestXxx_Cenário`, com subtests via `t.Run(...)` para variações. Table-driven quando há múltiplos casos de entrada/saída.
-- Ver `instructions/testing.md` para comandos, mocks e cobertura.
+- Framework: the stdlib `testing` is the standard. `testify` (`assert`/`require`/`mock`) is acceptable when already in use in the project — don't introduce it in a project that currently only uses stdlib without a concrete need.
+- Naming: `TestXxx_Scenario`, with subtests via `t.Run(...)` for variations. Table-driven when there are multiple input/output cases.
+- See `instructions/testing.md` for commands, mocks, and coverage.
 
 ## Linting
 
-- `.golangci.yml` com `disable-all: true`, habilitando `govet, errcheck, staticcheck, ineffassign, unused, gofmt, goimports`, timeout 3m. Adote exatamente esse conjunto em projetos novos ou ao adicionar lint a um projeto existente.
+- `.golangci.yml` with `disable-all: true`, enabling `govet, errcheck, staticcheck, ineffassign, unused, gofmt, goimports`, 3m timeout. Adopt exactly this set in new projects or when adding lint to an existing one.

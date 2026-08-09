@@ -1,75 +1,75 @@
-# Template para criação de funcionalidades
+# Feature implementation template
 
-Fluxo recomendado para implementar uma feature neste backend, do entendimento do requisito à validação final.
+Recommended flow for implementing a feature in this backend, from understanding the requirement to final validation.
 
-## 1. Entender o comportamento esperado
+## 1. Understand the expected behavior
 
-- Releia o requisito da tarefa. Se algo estiver ambíguo de um jeito que mudaria a implementação (ex.: verbo HTTP, formato de resposta, se precisa de transação), pergunte antes de escrever código — não assuma.
-- Identifique em qual camada a mudança realmente pertence: `domain` (regra/invariante), `usecase` (orquestração), `adapter/inbound/http` (contrato de API), `adapter/outbound` (integração externa/banco).
+- Re-read the task's requirement. If something is ambiguous in a way that would change the implementation (e.g., HTTP verb, response format, whether a transaction is needed), ask before writing code — don't assume.
+- Identify which layer the change actually belongs to: `domain` (rule/invariant), `usecase` (orchestration), `adapter/inbound/http` (API contract), `adapter/outbound` (external integration/database).
 
-## 2. Identificar contratos afetados
+## 2. Identify affected contracts
 
-- A mudança altera uma rota HTTP existente (formato de request/response, status code, verbo)? Se sim, é uma mudança potencialmente incompatível — ver "Operações que exigem aprovação" em `AGENTS.md` antes de prosseguir.
-- A mudança altera schema de banco (nova coluna, novo índice, novo relacionamento)? Verifique se o projeto usa `AutoMigrate` ou migrations versionadas (`instructions/database.md`) e siga o mecanismo já em uso.
-- A mudança afeta um contrato consumido por outro serviço (ex.: payload de webhook, formato aceito por integração externa)? Trate como mudança entre serviços — exige mais cautela e possivelmente aprovação.
+- Does the change alter an existing HTTP route (request/response format, status code, verb)? If so, it's a potentially incompatible change — see "Operations that require approval" in `AGENTS.md` before proceeding.
+- Does the change alter the database schema (new column, new index, new relationship)? Check whether the project uses `AutoMigrate` or versioned migrations (`instructions/database.md`) and follow the mechanism already in use.
+- Does the change affect a contract consumed by another service (e.g., webhook payload, format accepted by an external integration)? Treat it as a cross-service change — it requires more caution and possibly approval.
 
-## 3. Localizar exemplos existentes
+## 3. Locate existing examples
 
-Antes de escrever qualquer código novo, procure um caso já implementado no mesmo repositório:
-- Novo endpoint de listagem com filtro → veja um `Search`/`List` existente em `internal/usecase/` + `internal/adapter/outbound/postgres/`.
-- Nova operação de ingestão idempotente (upload, importação) → veja se já existe um padrão find-or-create com hash de conteúdo no projeto.
-- Novo usecase multi-etapa que grava em mais de uma tabela → veja se já existe um `TransactionRunner`/Unit-of-Work.
-- Novo endpoint autenticado → veja como `gobox/oidcauth`+`middlewares` já são usados no mesmo repositório antes de tocar em autenticação.
-- Antes de criar uma abstração nova (helper genérico, wrapper, cliente HTTP): verifique se já existe em `github.com/raykavin/gobox` (ver tabela em `instructions/go.md`).
-- Antes de adicionar uma dependência nova ao `go.mod`: verifique se `gobox` ou uma dependência já presente resolve o mesmo problema.
+Before writing any new code, look for a case already implemented in the same repository:
+- New listing endpoint with a filter → look at an existing `Search`/`List` in `internal/usecase/` + `internal/adapter/outbound/postgres/`.
+- New idempotent ingestion operation (upload, import) → check whether a content-hash find-or-create pattern already exists in the project.
+- New multi-step usecase that writes to more than one table → check whether a `TransactionRunner`/Unit-of-Work already exists.
+- New authenticated endpoint → see how `gobox/oidcauth`+`middlewares` are already used in the same repository before touching authentication.
+- Before creating a new abstraction (generic helper, wrapper, HTTP client): check whether it already exists in `github.com/raykavin/gobox` (see the table in `instructions/go.md`).
+- Before adding a new dependency to `go.mod`: check whether `gobox` or an existing dependency already solves the same problem.
 
-## 4. Definir regras de domínio
+## 4. Define domain rules
 
-- Regras de negócio/invariantes vivem em `internal/domain` (ou como método de entidade). Não coloque regra de negócio em `handler` ou em `adapter/outbound`.
-- Se a regra depende de estado externo (outro serviço, config), isso é orquestração de `usecase`, não regra pura de `domain`.
+- Business rules/invariants live in `internal/domain` (or as an entity method). Don't put business rules in a `handler` or in `adapter/outbound`.
+- If the rule depends on external state (another service, config), that's `usecase` orchestration, not a pure `domain` rule.
 
-## 5. Avaliar segurança e autorização
+## 5. Evaluate security and authorization
 
-- Toda rota nova precisa de: middleware de autenticação (`gobox/oidcauth`) + middleware de autorização com permissão específica da operação (não reaproveite uma permissão genérica de outro endpoint).
-- Se a operação processa dado sensível (CPF, dado bancário, PII), confirme que não será logado sem redação, especialmente em nível debug.
-- Ver checklist completo em `instructions/security.md`.
+- Every new route needs: an authentication middleware (`gobox/oidcauth`) + an authorization middleware with a permission specific to the operation (don't reuse a generic permission from another endpoint).
+- If the operation processes sensitive data (national ID, banking data, PII), confirm it won't be logged without redaction, especially at debug level.
+- See the full checklist in `instructions/security.md`.
 
-## 6. Avaliar persistência e migrations
+## 6. Evaluate persistence and migrations
 
-- Nova entidade/coluna: siga o mecanismo de schema já usado no repositório (`AutoMigrate` ou migration SQL versionada — `instructions/database.md`).
-- Nova operação de escrita multi-tabela: use (ou crie, se ainda não existir no repositório) um `TransactionRunner`.
-- Nova consulta com relacionamento: use `Preload`, não `Joins` manual (reserve `Joins` para filtro).
-- Se a alteração toca em uma migration já aplicada em produção: **não a edite** — crie uma nova.
+- New entity/column: follow the schema mechanism already used in the repository (`AutoMigrate` or a versioned SQL migration — `instructions/database.md`).
+- New multi-table write operation: use (or create, if it doesn't yet exist in the repository) a `TransactionRunner`.
+- New query with a relationship: use `Preload`, not manual `Joins` (reserve `Joins` for filtering).
+- If the change touches a migration already applied in production: **don't edit it** — create a new one.
 
-## 7. Implementar a menor mudança coerente
+## 7. Implement the smallest coherent change
 
-- Um usecase por operação (`internal/usecase/<contexto>/<operação>.go`).
-- Não refatore código não relacionado à tarefa "enquanto está ali" — se notar uma oportunidade de melhoria fora do escopo, relate ao final em vez de executar sem pedir.
-- Reaproveite o envelope de resposta, paginação, logger e autenticação já em uso no repositório.
+- One usecase per operation (`internal/usecase/<context>/<operation>.go`).
+- Don't refactor unrelated code "while you're in there" — if you spot an improvement opportunity outside the scope, report it at the end instead of executing it without asking.
+- Reuse the response envelope, pagination, logger, and authentication already in use in the repository.
 
-## 8. Criar ou atualizar testes
+## 8. Create or update tests
 
-- Endpoint novo: teste de autorização, sucesso, entrada inválida, recurso inexistente.
-- Usecase novo: caminho feliz + pelo menos uma condição de erro de negócio.
-- Código concorrente (fila, worker, workflow): sempre teste, mesmo que pareça simples.
-- Use mock funcional escrito à mão ou SQLite in-memory para transação real (ver `instructions/testing.md`).
+- New endpoint: test for authorization, success, invalid input, non-existent resource.
+- New usecase: happy path + at least one business-error condition.
+- Concurrent code (queue, worker, workflow): always test, even if it looks simple.
+- Use a hand-written functional mock or SQLite in-memory for a real transaction (see `instructions/testing.md`).
 
-## 9. Executar validações
+## 9. Run validations
 
 ```sh
 go build ./...
 go vet ./...
-golangci-lint run     # se .golangci.yml existir no repositório
+golangci-lint run     # if .golangci.yml exists in the repository
 go test -v -race ./...
 ```
-Se algum passo não puder rodar, declare isso explicitamente no relatório final.
+If any step can't run, state that explicitly in the final report.
 
-## 10. Atualizar documentação
+## 10. Update documentation
 
-- Anotações Swagger (`@Summary/@Router/@Success/@Failure`) sincronizadas com o comportamento real — regenere via `make swagger`.
-- README (seção relevante: Arquitetura/Configuração/API) se o comportamento documentado mudou.
-- `.claude/`/`AGENTS.md` local do repositório, se existir e se a mudança afetar o que ele descreve.
+- Swagger annotations (`@Summary/@Router/@Success/@Failure`) in sync with the actual behavior — regenerate via `make swagger`.
+- README (relevant section: Architecture/Configuration/API) if the documented behavior changed.
+- The repository's own `.claude/`/`AGENTS.md`, if it exists and the change affects what it describes.
 
-## 11. Relatar
+## 11. Report
 
-No relatório final da tarefa, inclua: o que mudou (arquivos/rotas/schema), por que (ligação com o requisito), quais decisões você tomou e por quê (ex.: qual verbo HTTP escolheu e por quê, se seguiu `AutoMigrate` ou migration versionada), quais riscos permanecem, e como validou (comandos executados e resultado — inclusive falhas ou passos pulados). Se algo tocou em uma das operações que exigem aprovação (`AGENTS.md`), confirme que a aprovação foi obtida antes de executar, não depois.
+In the task's final report, include: what changed (files/routes/schema), why (link to the requirement), which decisions you made and why (e.g., which HTTP verb you chose and why, whether you followed `AutoMigrate` or a versioned migration), what risks remain, and how you validated it (commands run and result — including failures or skipped steps). If anything touched one of the operations that require approval (`AGENTS.md`), confirm that approval was obtained before executing, not after.

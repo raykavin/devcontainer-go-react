@@ -1,129 +1,129 @@
-# Instruções para agentes
+# Instructions for agents
 
-Este arquivo é o ponto de entrada operacional para qualquer agente de IA trabalhando neste backend Go. É deliberadamente curto — o detalhe fica em `docs/ai/`.
+This file is the operational entry point for any AI agent working on this Go backend. It is deliberately short — the detail lives in `docs/ai/`.
 
-## Objetivo do projeto
+## Project goal
 
-Este repositório é um serviço backend Go (API REST, tipicamente), construído em arquitetura hexagonal, consumindo a biblioteca compartilhada `github.com/raykavin/gobox` para preocupações transversais (logging, config, resposta HTTP, paginação, OIDC, banco, healthcheck). Confirme o propósito de negócio específico no `README.md` do repositório antes de agir.
+This repository is a Go backend service (typically a REST API), built with hexagonal architecture, consuming the shared library `github.com/raykavin/gobox` for cross-cutting concerns (logging, config, HTTP response, pagination, OIDC, database, healthcheck). Confirm the specific business purpose in the repository's `README.md` before acting.
 
-## Fontes de verdade (nesta ordem)
+## Sources of truth (in this order)
 
-1. Requisitos explícitos da tarefa atual.
-2. Instruções locais do repositório (`.claude/`, `CLAUDE.md`, `README.md` do próprio projeto) — sempre têm prioridade sobre este documento.
-3. Contratos públicos já implementados (rotas HTTP, schema de banco, formato de resposta) — não quebre sem autorização.
-4. Este `AGENTS.md`.
-5. Documentos específicos em `docs/ai/instructions/` (go, api, database, testing, security).
+1. Explicit requirements of the current task.
+2. Local repository instructions (`.claude/`, `CLAUDE.md`, the project's own `README.md`) — always take priority over this document.
+3. Already-implemented public contracts (HTTP routes, database schema, response format) — don't break them without authorization.
+4. This `AGENTS.md`.
+5. Topic-specific documents in `docs/ai/instructions/` (go, api, database, testing, security).
 6. `docs/ai/backend-development-standard.md`.
-7. Convenções inferidas do código existente no próprio repositório.
-8. Recomendações gerais de engenharia.
+7. Conventions inferred from existing code in the repository itself.
+8. General engineering recommendations.
 
-Se duas fontes do mesmo nível de prioridade conflitarem, **pare e peça uma decisão** — não escolha silenciosamente.
+If two sources of the same priority level conflict, **stop and ask for a decision** — don't choose silently.
 
-## Como iniciar uma tarefa
+## How to start a task
 
-1. Leia o `README.md` do repositório e qualquer `.claude/`/`CLAUDE.md` local — eles têm prioridade sobre este arquivo.
-2. Procure uma implementação equivalente já existente no repositório antes de criar uma abstração nova (ex.: antes de escrever paginação, procure `gobox/pagination`; antes de escrever um envelope de resposta HTTP, procure `gobox/httpserver/respond`).
-3. Antes de adicionar uma dependência externa nova, verifique se já existe solução equivalente em `github.com/raykavin/gobox` ou em outra dependência já presente no `go.mod`.
+1. Read the repository's `README.md` and any local `.claude/`/`CLAUDE.md` — they take priority over this file.
+2. Look for an equivalent implementation already in the repository before creating a new abstraction (e.g., before writing pagination, look for `gobox/pagination`; before writing an HTTP response envelope, look for `gobox/httpserver/respond`).
+3. Before adding a new external dependency, check whether an equivalent solution already exists in `github.com/raykavin/gobox` or another dependency already present in `go.mod`.
 
-## Arquitetura
+## Architecture
 
-Hexagonal / ports-and-adapters. Ver `docs/ai/backend-development-standard.md` seção "Arquitetura padrão" para a árvore de diretórios completa.
+Hexagonal / ports-and-adapters. See `docs/ai/backend-development-standard.md`, section "Standard architecture", for the full directory tree.
 
-## Estrutura de diretórios
+## Directory structure
 
 ```
-cmd/<binário>/main.go     — só bootstrap: flags, config, chama internal/app, inicia/para o processo
-internal/domain/          — entidades e regras, sem I/O
-internal/port/            — interfaces (contratos)
-internal/usecase/         — 1 arquivo por operação de negócio
+cmd/<binary>/main.go      — bootstrap only: flags, config, calls internal/app, starts/stops the process
+internal/domain/          — entities and rules, no I/O
+internal/port/            — interfaces (contracts)
+internal/usecase/         — 1 file per business operation
 internal/adapter/inbound/http/{handler,middleware,response,router}
-internal/adapter/outbound/<x>/   — implementações concretas de port
-internal/app/ (ou internal/platform/) — DI manual, chamado uma vez por cmd/*/main.go
-internal/config/          — carregamento/validação de config
-scripts/sh/*.sh           — build/deploy/test/swagger/healthcheck, chamados pelo Makefile
+internal/adapter/outbound/<x>/   — concrete implementations of port
+internal/app/ (or internal/platform/) — manual DI, called once by cmd/*/main.go
+internal/config/          — config loading/validation
+scripts/sh/*.sh           — build/deploy/test/swagger/healthcheck, invoked by the Makefile
 ```
 
-## Regras de dependência
+## Dependency rules
 
-- `domain` → nada de `adapter`/`infra`/`config`/`app`.
-- `usecase` → só `domain` e `port` (interfaces), nunca `adapter/outbound` diretamente.
-- `adapter/outbound/*` → implementa `port`; único lugar com GORM/drivers/clientes de terceiros.
-- `adapter/inbound/http/handler` → valida entrada, chama 1 usecase, formata saída; **nunca** implementa regra de negócio.
-- Composição/DI → centralizada em `internal/app/` (ou `internal/platform/`), manual, sem framework de DI (não introduza Uber Fx, Wire etc. salvo decisão explícita).
+- `domain` → nothing from `adapter`/`infra`/`config`/`app`.
+- `usecase` → only `domain` and `port` (interfaces), never `adapter/outbound` directly.
+- `adapter/outbound/*` → implements `port`; the only place with GORM/drivers/third-party clients.
+- `adapter/inbound/http/handler` → validates input, calls 1 usecase, formats output; **never** implements business rules.
+- Composition/DI → centralized in `internal/app/` (or `internal/platform/`), manual, no DI framework (don't introduce Uber Fx, Wire, etc. without an explicit decision).
 
-## Convenções de implementação
+## Implementation conventions
 
-- 1 arquivo por operação em `usecase/` (`create.go`, `update.go`, `find_or_create.go`), `snake_case.go`.
-- Erros: sentinelas locais (`var ErrX = errors.New(...)`) + `fmt.Errorf("%w: ...", ErrX)`. Sem pacote central de erros.
-- DTOs validados via `binding:"required"` (Gin/go-playground/validator), nunca `validate:` standalone.
-- Logging via `github.com/raykavin/gobox/logger` — nunca escreva um wrapper zerolog novo.
-- Paginação via `github.com/raykavin/gobox/pagination` — nunca reimplemente `LIMIT`/`OFFSET` manual em projeto que já usa GORM.
+- 1 file per operation in `usecase/` (`create.go`, `update.go`, `find_or_create.go`), `snake_case.go`.
+- Errors: local sentinels (`var ErrX = errors.New(...)`) + `fmt.Errorf("%w: ...", ErrX)`. No central error package.
+- DTOs validated via `binding:"required"` (Gin/go-playground/validator), never standalone `validate:`.
+- Logging via `github.com/raykavin/gobox/logger` — never write a new zerolog wrapper.
+- Pagination via `github.com/raykavin/gobox/pagination` — never reimplement manual `LIMIT`/`OFFSET` in a project that already uses GORM.
 
-## APIs e contratos
+## APIs and contracts
 
-- Framework: Gin. Prefixo fixo `/api/v1`. Recursos em kebab-case plural.
-- `GET /recurso/:id` para leitura por ID; `POST /recurso/search` (filtro no body) para busca/listagem.
-- Autenticação: **sempre** `github.com/raykavin/gobox/oidcauth` + `gobox/httpserver/middlewares`. Nunca implemente verificação OIDC/JWT do zero.
-- Autorização: declarativa por rota (middleware), nunca dentro do usecase. Permissão nomeada `"recurso:acao"`.
-- Todo novo endpoint deve ter testes de: autorização (acesso negado sem permissão), sucesso, entrada inválida, e recurso inexistente (quando aplicável).
-- Mapeie erro de domínio → status HTTP explicitamente no handler (`errors.Is`/`errors.As`); nunca deixe todo erro cair em 500 por omissão.
-- Mantenha as anotações Swagger (`@Success`/`@Failure`) sincronizadas com o comportamento real do handler.
+- Framework: Gin. Fixed prefix `/api/v1`. Resources in plural kebab-case.
+- `GET /resource/:id` for reading by ID; `POST /resource/search` (filter in the body) for search/listing.
+- Authentication: **always** `github.com/raykavin/gobox/oidcauth` + `gobox/httpserver/middlewares`. Never implement OIDC/JWT verification from scratch.
+- Authorization: declarative per route (middleware), never inside the usecase. Permission named `"resource:action"`.
+- Every new endpoint must have tests for: authorization (access denied without permission), success, invalid input, and non-existent resource (when applicable).
+- Explicitly map domain errors → HTTP status in the handler (`errors.Is`/`errors.As`); never let every error fall through to 500 by default.
+- Keep Swagger annotations (`@Success`/`@Failure`) in sync with the handler's actual behavior.
 
-## Persistência e migrations
+## Persistence and migrations
 
-- ORM: GORM sobre Postgres/SQLite é o padrão para domínio relacional geral.
-- **Não altere uma migration já aplicada; crie uma nova migration** — salvo se o projeto usar `db.AutoMigrate` sem SQL versionado (aceitável em fase inicial; avalie o risco de rodar em produção — ver `docs/ai/instructions/database.md`).
-- Toda nova variável de ambiente/config deve ser validada na inicialização e documentada no arquivo `*.example.yml`.
-- Toda alteração de schema que remove ou renomeia uma coluna, ou que roda em uma tabela grande, **exige aprovação humana explícita** — ver seção abaixo.
-- Transações multi-etapa: use um `TransactionRunner` propagado por `context.Context`, não escreva usecases multi-etapa sem transação.
+- ORM: GORM over Postgres/SQLite is the standard for a general relational domain.
+- **Don't modify a migration that's already been applied; create a new one** — unless the project uses `db.AutoMigrate` without versioned SQL (acceptable in an early stage; evaluate the risk of running it in production — see `docs/ai/instructions/database.md`).
+- Every new environment/config variable must be validated at startup and documented in the `*.example.yml` file.
+- Any schema change that removes or renames a column, or that runs against a large table, **requires explicit human approval** — see the section below.
+- Multi-step transactions: use a `TransactionRunner` propagated via `context.Context`; don't write multi-step usecases without a transaction.
 
-## Segurança
+## Security
 
-Ver `docs/ai/instructions/security.md` para a lista completa. Não-negociável: autenticação sempre via `gobox/oidcauth`; CORS sempre via `gobox/httpserver/middlewares`; CSRF obrigatório com cookie de sessão; segredos apenas via `*.example.yml` versionado + arquivo real no `.gitignore` — nunca commitar valor real.
+See `docs/ai/instructions/security.md` for the full list. Non-negotiable: authentication always via `gobox/oidcauth`; CORS always via `gobox/httpserver/middlewares`; CSRF required with a session cookie; secrets only via a versioned `*.example.yml` + the real file in `.gitignore` — never commit a real value.
 
-## Testes e validação
+## Testing and validation
 
-Sequência mínima antes de considerar qualquer tarefa concluída:
+Minimum sequence before considering any task complete:
 ```
 go build ./...
 go vet ./...
-golangci-lint run     # se houver .golangci.yml no repositório
+golangci-lint run     # if the repository has a .golangci.yml
 go test -v -race ./...
 ```
-Se algum passo não puder ser executado (ex.: `golangci-lint` não instalado no ambiente), explique isso claramente no relatório final — não omita a falha nem finja que passou. Não remova ou reduza um teste apenas para fazer a validação passar. Prefira mocks funcionais escritos à mão ou SQLite in-memory para testes que envolvem GORM/transação, em vez de depender de geração automática de mocks.
+If a step can't be run (e.g., `golangci-lint` not installed in the environment), state that clearly in the final report — don't omit the failure or pretend it passed. Don't remove or reduce a test just to make validation pass. Prefer hand-written functional mocks or SQLite in-memory for tests involving GORM/transactions, rather than relying on automatic mock generation.
 
-## Documentação
+## Documentation
 
-Atualize `README.md` (seções: Arquitetura, Configuração, Execução local, Scripts/Makefile, Testes, Documentação da API) e anotações Swagger no mesmo PR que muda o comportamento que elas descrevem. Se o repositório tiver `.claude/`/`CLAUDE.md` próprio, atualize-o também quando a mudança afetar o que ele descreve.
+Update `README.md` (sections: Architecture, Configuration, Local execution, Scripts/Makefile, Tests, API documentation) and Swagger annotations in the same PR that changes the behavior they describe. If the repository has its own `.claude/`/`CLAUDE.md`, update it too when the change affects what it describes.
 
-## Operações que exigem aprovação humana explícita
+## Operations that require explicit human approval
 
-Pare e peça confirmação antes de:
-- Qualquer alteração incompatível de API (mudar formato de resposta, remover campo, trocar verbo HTTP de endpoint existente).
-- Mudar mecanismo de autenticação/autorização.
-- Migration que remove/renomeia coluna, ou `DROP`/`ALTER` em tabela com dados reais.
-- Excluir arquivos ou módulos relevantes.
-- Trocar framework, banco ou tecnologia estrutural (ex.: sair de GORM, trocar Gin por outro framework).
-- Adicionar dependência de grande impacto (novo ORM, novo framework de DI, novo message broker).
-- Alterar infraestrutura compartilhada (`gobox`) de um jeito que afete outros consumidores sem coordenar a versão.
-- Mudar pipeline de build/deploy em produção.
-- Reduzir cobertura de teste ou remover teste existente.
-- Qualquer alteração ampla fora do escopo pedido.
+Stop and ask for confirmation before:
+- Any incompatible API change (changing response format, removing a field, changing an existing endpoint's HTTP verb).
+- Changing the authentication/authorization mechanism.
+- A migration that removes/renames a column, or `DROP`/`ALTER` on a table with real data.
+- Deleting relevant files or modules.
+- Changing framework, database, or structural technology (e.g., moving away from GORM, swapping Gin for another framework).
+- Adding a high-impact dependency (new ORM, new DI framework, new message broker).
+- Changing shared infrastructure (`gobox`) in a way that affects other consumers without coordinating the version.
+- Changing the build/deploy pipeline in production.
+- Reducing test coverage or removing an existing test.
+- Any broad change outside the requested scope.
 
-## Ações proibidas
+## Forbidden actions
 
-- Não invente requisito ou decisão arquitetural não solicitada.
-- Não copie/reimplemente localmente algo que já existe em `gobox`.
-- Não exponha segredos em código, log, documentação ou resposta — nem mesmo "temporariamente" ou em arquivo de exemplo.
-- Não rode `--no-verify`, pule hooks, ou desative lint/testes para fazer uma tarefa "passar".
+- Don't invent a requirement or architectural decision that wasn't requested.
+- Don't locally copy/reimplement something that already exists in `gobox`.
+- Don't expose secrets in code, logs, documentation, or responses — not even "temporarily" or in an example file.
+- Don't run `--no-verify`, skip hooks, or disable lint/tests to make a task "pass".
 
-## Definição de pronto
+## Definition of done
 
-Uma tarefa está concluída quando: (1) build/vet/lint/test passam (ver seção Testes); (2) contratos públicos preservados ou quebra explicitamente autorizada; (3) documentação relevante atualizada; (4) nenhuma operação da lista "exige aprovação" foi executada sem confirmação; (5) o agente relatou claramente o que mudou, por quê, e como validou.
+A task is complete when: (1) build/vet/lint/test pass (see Testing section); (2) public contracts preserved or the break explicitly authorized; (3) relevant documentation updated; (4) no operation from the "requires approval" list was executed without confirmation; (5) the agent clearly reported what changed, why, and how it was validated.
 
-## Documentos complementares
+## Related documents
 
-- [docs/ai/backend-development-standard.md](docs/ai/backend-development-standard.md) — padrão de desenvolvimento detalhado.
-- [docs/ai/new-project-checklist.md](docs/ai/new-project-checklist.md) — checklist de início de projeto.
-- [docs/ai/feature-template.md](docs/ai/feature-template.md) — fluxo recomendado para implementar uma feature.
-- [docs/ai/instructions/](docs/ai/instructions/) — go.md, api.md, database.md, testing.md, security.md (detalhe por tema).
+- [docs/ai/backend-development-standard.md](docs/ai/backend-development-standard.md) — detailed development standard.
+- [docs/ai/new-project-checklist.md](docs/ai/new-project-checklist.md) — project kickoff checklist.
+- [docs/ai/feature-template.md](docs/ai/feature-template.md) — recommended flow for implementing a feature.
+- [docs/ai/instructions/](docs/ai/instructions/) — go.md, api.md, database.md, testing.md, security.md (per-topic detail).

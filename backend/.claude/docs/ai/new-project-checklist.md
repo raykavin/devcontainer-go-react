@@ -1,92 +1,92 @@
-# Checklist de início de projeto backend
+# Backend project kickoff checklist
 
-Use como ponto de partida para um novo serviço backend Go a partir deste template. Itens marcados **[decisão]** exigem confirmação do responsável antes de seguir — não escolha sozinho.
+Use as a starting point for a new Go backend service built from this template. Items marked **[decision]** require confirmation from the person responsible before proceeding — don't decide alone.
 
-## 1. Decisões arquiteturais
+## 1. Architectural decisions
 
-- [ ] Confirmar domínio/finalidade do serviço.
-- [ ] **[decisão]** Tipo de ID de entidade: `uint` autoincrement (padrão recomendado) ou `uuid.UUID` — decida com base em se IDs serão expostos/gerados externamente.
-- [ ] **[decisão]** Estratégia de schema: `db.AutoMigrate` no boot (mais simples, sem histórico/rollback) vs. migrations SQL versionadas + binário `migrator` (mais seguro para dados críticos).
-- [ ] Confirmar se haverá processamento assíncrono — se sim, planejar `cmd/worker` desde o início.
-- [ ] DI manual via `internal/app/` (bootstrap/factory) — não introduzir framework de DI (Fx, Wire) salvo decisão explícita em contrário.
+- [ ] Confirm the service's domain/purpose.
+- [ ] **[decision]** Entity ID type: `uint` autoincrement (recommended default) or `uuid.UUID` — decide based on whether IDs will be exposed/generated externally.
+- [ ] **[decision]** Schema strategy: `db.AutoMigrate` at boot (simpler, no history/rollback) vs. versioned SQL migrations + a `migrator` binary (safer for critical data).
+- [ ] Confirm whether there will be async processing — if so, plan `cmd/worker` from the start.
+- [ ] Manual DI via `internal/app/` (bootstrap/factory) — don't introduce a DI framework (Fx, Wire) unless explicitly decided otherwise.
 
-## 2. Estrutura inicial
+## 2. Initial structure
 
-- [ ] Criar árvore: `cmd/api/`, `cmd/worker/` (se aplicável), `internal/{domain,port,usecase,adapter/{inbound/http,outbound},app,config,dto}/`.
-- [ ] `Makefile` com alvos `build, deploy, test, swagger` delegando a `scripts/sh/*.sh` — **verificar que os caminhos referenciados nos scripts realmente existem**.
+- [ ] Create the tree: `cmd/api/`, `cmd/worker/` (if applicable), `internal/{domain,port,usecase,adapter/{inbound/http,outbound},app,config,dto}/`.
+- [ ] `Makefile` with `build, deploy, test, swagger` targets delegating to `scripts/sh/*.sh` — **verify that the paths referenced by the scripts actually exist**.
 - [ ] `.golangci.yml` (`govet, errcheck, staticcheck, ineffassign, unused, gofmt, goimports`).
-- [ ] `.devcontainer/` subindo só os serviços auxiliares realmente usados (Postgres se GORM; não copiar serviços de observabilidade "por precaução", a menos que o novo projeto realmente vá instrumentar telemetria).
+- [ ] `.devcontainer/` bringing up only the auxiliary services actually used (Postgres if GORM; don't copy observability services "just in case" unless the new project will actually instrument telemetry).
 
-## 3. Configuração
+## 3. Configuration
 
-- [ ] `configs/api.example.yml` (+ `worker.example.yml` se aplicável) versionado, com placeholders (`"changeme"`), YAML.
-- [ ] Arquivo real (`configs/api.yml`) no `.gitignore` desde o primeiro commit — confirmar que a regra do `.gitignore` não tem exceção acidental.
-- [ ] Toda variável de configuração validada na inicialização (falha rápido se obrigatória e ausente) e documentada no `.example.yml`.
-- [ ] Config carregada via `github.com/raykavin/gobox/config` (`Loader[T]` sobre Viper) — não escrever um loader novo.
+- [ ] `configs/api.example.yml` (+ `worker.example.yml` if applicable) versioned, with placeholders (`"changeme"`), YAML.
+- [ ] The real file (`configs/api.yml`) in `.gitignore` from the first commit — confirm the `.gitignore` rule doesn't have an accidental exception.
+- [ ] Every configuration variable validated at startup (fail fast if required and missing) and documented in the `.example.yml`.
+- [ ] Config loaded via `github.com/raykavin/gobox/config` (`Loader[T]` over Viper) — don't write a new loader.
 
-## 4. Gestão de segredos
+## 4. Secrets management
 
-- [ ] Nenhum valor real em nenhum arquivo versionado, nem em commit de "configuração temporária".
-- [ ] Segredos de runtime (client secret OIDC, DSN de banco, token de parceiro) só via arquivo de config real (ignorado) ou variável de ambiente injetada no deploy.
+- [ ] No real value in any versioned file, not even in a "temporary configuration" commit.
+- [ ] Runtime secrets (OIDC client secret, database DSN, partner token) only via a real (ignored) config file or an environment variable injected at deploy time.
 
-## 5. Banco de dados
+## 5. Database
 
-- [ ] Conexão via `github.com/raykavin/gobox/database/gorm` (factory com retry+pool), não `gorm.Open` direto.
-- [ ] `BaseModel` com `ID/CreatedAt/UpdatedAt/DeletedAt(gorm.DeletedAt)` embutido em toda entidade persistida — tipo de ID conforme decisão do item 1.
-- [ ] Se optar por migrations versionadas: usar `github.com/raykavin/gobox/database/migrate`, binário `cmd/migrator` dedicado, arquivos `.up.sql`/`.down.sql` reais (não placeholders vazios) desde a primeira migration.
-- [ ] Unit-of-Work: implementar `port.TransactionRunner` antes do primeiro usecase multi-etapa que grava em mais de uma tabela.
-- [ ] Paginação via `gobox/pagination`, não implementação própria.
+- [ ] Connection via `github.com/raykavin/gobox/database/gorm` (factory with retry+pool), not `gorm.Open` directly.
+- [ ] `BaseModel` with `ID/CreatedAt/UpdatedAt/DeletedAt(gorm.DeletedAt)` embedded in every persisted entity — ID type per the item 1 decision.
+- [ ] If choosing versioned migrations: use `github.com/raykavin/gobox/database/migrate`, a dedicated `cmd/migrator` binary, real `.up.sql`/`.down.sql` files (not empty placeholders) from the first migration.
+- [ ] Unit-of-Work: implement `port.TransactionRunner` before the first multi-step usecase that writes to more than one table.
+- [ ] Pagination via `gobox/pagination`, not a custom implementation.
 
-## 6. Autenticação e autorização
+## 6. Authentication and authorization
 
-- [ ] Autenticação via `github.com/raykavin/gobox/oidcauth` — não escrever verificador OIDC próprio.
-- [ ] CORS/CSRF via `github.com/raykavin/gobox/httpserver/middlewares` — não reimplementar.
-- [ ] Definir a nomenclatura de permissão (`"recurso:acao"`) desde o primeiro endpoint, documentada em um único arquivo (`internal/domain/valueobject/permissions.go` ou equivalente).
+- [ ] Authentication via `github.com/raykavin/gobox/oidcauth` — don't write your own OIDC verifier.
+- [ ] CORS/CSRF via `github.com/raykavin/gobox/httpserver/middlewares` — don't reimplement.
+- [ ] Define the permission naming convention (`"resource:action"`) from the first endpoint, documented in a single file (`internal/domain/valueobject/permissions.go` or equivalent).
 
 ## 7. Logging
 
-- [ ] `github.com/raykavin/gobox/logger` — não criar wrapper zerolog local.
-- [ ] Definir desde o início quais campos de payload/request são sensíveis (PII, credenciais) e garantir redação antes de logar em nível debug.
+- [ ] `github.com/raykavin/gobox/logger` — don't create a local zerolog wrapper.
+- [ ] Decide from the start which payload/request fields are sensitive (PII, credentials) and ensure redaction before logging at debug level.
 
-## 8. Tratamento de erros
+## 8. Error handling
 
-- [ ] Sentinelas de erro locais por pacote (`var ErrX = errors.New(...)`), sem pacote central de exceções.
-- [ ] Função/mapeamento explícito de erro de domínio → status HTTP em cada handler, desde o primeiro endpoint (não deixar cair em 500 por omissão).
+- [ ] Local error sentinels per package (`var ErrX = errors.New(...)`), no central exceptions package.
+- [ ] Explicit domain-error → HTTP-status mapping in every handler, from the first endpoint (don't let it fall through to 500 by default).
 
 ## 9. Health checks
 
-- [ ] Servidor de health check em porta separada do servidor de negócio.
-- [ ] Preferir endpoints distintos `/healthz` (liveness) e `/readyz` (readiness).
-- [ ] `scripts/sh/healthcheck.sh` real e testado — confirmar que o `Dockerfile` só faz `COPY` de um script que de fato existe.
+- [ ] Health-check server on a port separate from the business server.
+- [ ] Prefer distinct `/healthz` (liveness) and `/readyz` (readiness) endpoints.
+- [ ] Real, tested `scripts/sh/healthcheck.sh` — confirm the `Dockerfile` only `COPY`s a script that actually exists.
 
-## 10. Testes
+## 10. Tests
 
-- [ ] `go test -v -race ./...` funcionando desde o primeiro commit.
-- [ ] `.golangci.yml` configurado e `golangci-lint run` passando.
-- [ ] Testes de autorização/sucesso/entrada-inválida/não-encontrado para o primeiro endpoint, como modelo para os seguintes.
-- [ ] Prefira mocks funcionais escritos à mão em vez de depender de geração automática (`mockgen`) sem testar se ela de fato produz artefatos úteis.
+- [ ] `go test -v -race ./...` working from the first commit.
+- [ ] `.golangci.yml` configured and `golangci-lint run` passing.
+- [ ] Authorization/success/invalid-input/not-found tests for the first endpoint, as a model for the ones that follow.
+- [ ] Prefer hand-written functional mocks over relying on automatic generation (`mockgen`) without first testing whether it actually produces useful artifacts.
 
-## 11. Qualidade
+## 11. Quality
 
-- [ ] `go build ./... && go vet ./... && golangci-lint run && go test -v -race ./...` como sequência de validação documentada no README.
-- [ ] Incluir pipeline de CI básico (lint+build+test) desde o início.
+- [ ] `go build ./... && go vet ./... && golangci-lint run && go test -v -race ./...` as the validation sequence documented in the README.
+- [ ] Include a basic CI pipeline (lint+build+test) from the start.
 
-## 12. Documentação
+## 12. Documentation
 
-- [ ] `README.md` com as seções: Arquitetura, Configuração, Execução local, Scripts/Makefile, Testes, Documentação da API.
-- [ ] Swagger (`swaggo/swag`) desde o primeiro endpoint, gerado via `make swagger`.
-- [ ] `AGENTS.md`/`.claude/` do próprio projeto (se o time usar agentes de IA nele) mantido sincronizado com a estrutura real desde o início.
+- [ ] `README.md` with the sections: Architecture, Configuration, Local execution, Scripts/Makefile, Tests, API documentation.
+- [ ] Swagger (`swaggo/swag`) from the first endpoint, generated via `make swagger`.
+- [ ] The project's own `AGENTS.md`/`.claude/` (if the team uses AI agents on it) kept in sync with the real structure from the start.
 
 ## 13. Containers
 
-- [ ] Dockerfile multi-stage `golang:1.26-alpine3.22` → `alpine:3.22`, usuário non-root, `HEALTHCHECK` via script real.
-- [ ] Testar `make build` e `docker build` localmente antes de considerar o projeto pronto.
+- [ ] Multi-stage Dockerfile `golang:1.26-alpine3.22` → `alpine:3.22`, non-root user, `HEALTHCHECK` via a real script.
+- [ ] Test `make build` and `docker build` locally before considering the project ready.
 
-## 14. Pipeline e deploy
+## 14. Pipeline and deploy
 
-- [ ] CI básico (lint+build+test) — ver item 11.
-- [ ] `make deploy` → `scripts/sh/deploy.sh` (`docker push`) como padrão de partida; introduzir Kubernetes/Helm/rollback automatizado apenas sob pedido explícito.
+- [ ] Basic CI (lint+build+test) — see item 11.
+- [ ] `make deploy` → `scripts/sh/deploy.sh` (`docker push`) as the starting standard; introduce Kubernetes/Helm/automated rollback only on explicit request.
 
-## 15. Critérios de pronto
+## 15. Readiness criteria
 
-Ver seção "Definição de pronto" em `../../AGENTS.md`. Resumo: build/vet/lint/test passam; contratos preservados; documentação atualizada; nenhuma operação da lista "exige aprovação" executada sem confirmação.
+See the "Definition of done" section in `../../AGENTS.md`. Summary: build/vet/lint/test pass; contracts preserved; documentation updated; no operation from the "requires approval" list executed without confirmation.

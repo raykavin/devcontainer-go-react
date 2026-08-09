@@ -1,54 +1,54 @@
-# Instruções específicas — Testes e qualidade
+# Specific instructions — Tests and quality
 
-Complementa `AGENTS.md`.
+Complements `AGENTS.md`.
 
-## Comando de validação mínimo
+## Minimum validation command
 
-Execute nesta ordem antes de considerar qualquer tarefa concluída:
+Run in this order before considering any task complete:
 
 ```sh
 cd backend
 go build ./...
 go vet ./...
-golangci-lint run          # apenas se existir .golangci.yml no repositório
+golangci-lint run          # only if .golangci.yml exists in the repository
 go test -v -race ./...
 ```
 
-- `go test -v -race ./...` é o piso mínimo inegociável, sempre com `-race`.
-- Rode `go build`/`go vet` como etapas isoladas mesmo que pareçam redundantes com o teste — são baratas e pegam problemas que o teste sozinho não pega.
-- Se o repositório não tiver `.golangci.yml`, não invente um conjunto de linters diferente do recomendado em `instructions/go.md` — ou pule esse passo, ou (se a tarefa incluir "melhorar qualidade") adicione exatamente esse mesmo conjunto.
-- Se algum passo não puder rodar no seu ambiente (ferramenta não instalada, sem acesso de rede para baixar dependência), declare isso explicitamente no relatório final da tarefa — nunca omita ou finja que passou.
+- `go test -v -race ./...` is the non-negotiable minimum bar, always with `-race`.
+- Run `go build`/`go vet` as isolated steps even if they seem redundant with the test — they're cheap and catch problems the test alone won't.
+- If the repository has no `.golangci.yml`, don't invent a different linter set than the one recommended in `instructions/go.md` — either skip this step, or (if the task includes "improve quality") add exactly that same set.
+- If any step can't run in your environment (tool not installed, no network access to fetch a dependency), state that explicitly in the task's final report — never omit it or pretend it passed.
 
-## Framework de asserção
+## Assertion framework
 
-- stdlib `testing` é o padrão. `testify` (`assert`/`require`/`mock`) é aceitável quando já usado no projeto. Não introduza `testify` em um projeto que hoje só usa stdlib, a menos que a tarefa peça isso explicitamente.
+- The stdlib `testing` is the standard. `testify` (`assert`/`require`/`mock`) is acceptable when already used in the project. Don't introduce `testify` in a project that currently only uses stdlib, unless the task explicitly asks for it.
 
-## Nomenclatura e estilo
+## Naming and style
 
-- `TestXxx_Cenário` com subtests via `t.Run("descrição do caso", func(t *testing.T) {...})`.
-- Table-driven para múltiplos casos de entrada/saída (`mutate func(*Input)` por caso é um padrão útil).
-- Nomeie o teste pelo comportamento, não pela implementação — o nome do teste deve documentar a condição que ele existe para prevenir.
+- `TestXxx_Scenario` with subtests via `t.Run("case description", func(t *testing.T) {...})`.
+- Table-driven for multiple input/output cases (a `mutate func(*Input)` per case is a useful pattern).
+- Name the test after the behavior, not the implementation — the test name should document the condition it exists to prevent.
 
 ## Mocks
 
-Prefira um destes três padrões, nessa ordem de preferência para a maioria dos casos:
-1. **Structs funcionais escritos à mão** — `type mockSubRepo struct { SearchFn func(...) ...; GetByIDFn func(...) ... }`, implementando a interface de `port` com campos de função substituíveis por teste. É a opção mais simples de manter e a recomendação padrão.
-2. **`testify/mock`** — quando `testify` já é usado no projeto.
-3. **SQLite in-memory real** — para testar transação/GORM de verdade em vez de mockar cada colaborador. Prefira esta opção quando o teste precisa validar uma transação multi-tabela de verdade.
+Prefer one of these three patterns, in this order of preference for most cases:
+1. **Hand-written functional structs** — `type mockSubRepo struct { SearchFn func(...) ...; GetByIDFn func(...) ... }`, implementing the `port` interface with substitutable function fields per test. This is the simplest to maintain and the default recommendation.
+2. **`testify/mock`** — when `testify` is already used in the project.
+3. **Real SQLite in-memory** — to test a real transaction/GORM instead of mocking every collaborator. Prefer this option when the test needs to validate a real multi-table transaction.
 
-Não dependa de `make mocks`/`mockgen` sem antes confirmar que ele de fato gera artefatos úteis no projeto — é comum esse alvo existir no Makefile por cópia de outro projeto sem nunca ter sido usado de verdade.
+Don't rely on `make mocks`/`mockgen` without first confirming it actually generates useful artifacts in the project — it's common for this Makefile target to exist by copy from another project without ever having been used for real.
 
-## Cobertura
+## Coverage
 
-Não adicione um gate de cobertura mínima arbitrário a menos que a tarefa peça isso explicitamente.
+Don't add an arbitrary minimum coverage gate unless the task explicitly asks for it.
 
-## Testes obrigatórios por tipo de alteração
+## Required tests by change type
 
-- **Novo endpoint HTTP**: teste de autorização (sem permissão → 403/401), sucesso, entrada inválida (400), recurso inexistente (404) quando aplicável.
-- **Nova regra de domínio/usecase**: teste unitário cobrindo o caminho feliz e pelo menos uma condição de erro de negócio relevante.
-- **Nova migration/alteração de schema**: se o projeto usa SQL versionado, teste que a migration aplica sem erro contra um banco limpo (via `cmd/migrator` ou script equivalente); se usa `AutoMigrate`, verifique que `AutoMigrate` não falha ao rodar contra o schema atual.
-- **Código concorrente** (filas, workers, workflows): sempre escreva teste, mesmo que o restante do arquivo/pacote tenha baixa cobertura — código concorrente sem teste é onde bugs sutis mais sobrevivem sem serem notados.
+- **New HTTP endpoint**: authorization test (no permission → 403/401), success, invalid input (400), non-existent resource (404) when applicable.
+- **New domain rule/usecase**: unit test covering the happy path and at least one relevant business-error condition.
+- **New migration/schema change**: if the project uses versioned SQL, test that the migration applies without error against a clean database (via `cmd/migrator` or an equivalent script); if it uses `AutoMigrate`, verify that `AutoMigrate` doesn't fail against the current schema.
+- **Concurrent code** (queues, workers, workflows): always write a test, even if the rest of the file/package has low coverage — concurrent code without tests is where subtle bugs most often go unnoticed.
 
 ## CI/CD
 
-Novos projetos devem incluir um pipeline básico (lint + build + test) desde o início — ver `new-project-checklist.md`. Para repositórios existentes sem CI, adicionar é uma melhoria recomendada, não uma ação a executar sem que a tarefa peça isso explicitamente (mudança em pipeline de build/deploy exige aprovação — ver `AGENTS.md`).
+New projects should include a basic pipeline (lint + build + test) from the start — see `new-project-checklist.md`. For existing repositories without CI, adding it is a recommended improvement, not an action to take without the task explicitly asking for it (changes to the build/deploy pipeline require approval — see `AGENTS.md`).

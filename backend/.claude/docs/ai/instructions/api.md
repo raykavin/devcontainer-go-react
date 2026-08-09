@@ -1,19 +1,19 @@
-# Instruções específicas — APIs e contratos
+# Specific instructions — APIs and contracts
 
-Complementa `AGENTS.md`.
+Complements `AGENTS.md`.
 
-## Framework e rotas
+## Framework and routes
 
-- Gin é o framework HTTP padrão. `net/http` puro é aceitável apenas para casos simples e isolados (ex.: um webhook receiver com uma única rota).
-- Prefixo de rota fixo: `/api/v1`. Não crie `/v2` sem antes registrar uma decisão de versionamento — não há estratégia de depreciação definida por padrão.
-- Recursos em kebab-case, plural: `bank-accounts`, `document-types`.
-- Leitura por ID: `GET /recurso/:id`.
-- Busca/listagem com filtro: `POST /recurso/search` com o filtro no corpo da requisição — **não** use `GET` com querystring para filtros compostos; o filtro se integra diretamente com `gobox/pagination.NewFilterBuilder()`.
-- Update: `PATCH` por padrão; use `PUT` apenas quando o recurso inteiro é substituído. Ao editar um endpoint existente, mantenha o verbo já usado.
+- Gin is the standard HTTP framework. Plain `net/http` is acceptable only for simple, isolated cases (e.g., a webhook receiver with a single route).
+- Fixed route prefix: `/api/v1`. Don't create `/v2` without first recording a versioning decision — there's no defined deprecation strategy by default.
+- Resources in plural kebab-case: `bank-accounts`, `document-types`.
+- Read by ID: `GET /resource/:id`.
+- Search/listing with a filter: `POST /resource/search` with the filter in the request body — **don't** use `GET` with a querystring for composite filters; the filter integrates directly with `gobox/pagination.NewFilterBuilder()`.
+- Update: `PATCH` by default; use `PUT` only when the entire resource is replaced. When editing an existing endpoint, keep the verb already in use.
 
-## Envelope de resposta
+## Response envelope
 
-`gobox/httpserver/respond` define o formato canônico:
+`gobox/httpserver/respond` defines the canonical format:
 ```go
 type Response struct {
     Success bool          `json:"success"`
@@ -22,51 +22,51 @@ type Response struct {
     Errors  []*APIError   `json:"errors,omitempty"`
 }
 ```
-com helpers `OK/Created/Accepted/BadRequest/NotFound/InternalServerError/...`.
+with helpers `OK/Created/Accepted/BadRequest/NotFound/InternalServerError/...`.
 
-Importe `gobox/httpserver/respond` diretamente — não copie o código para o repositório local. Trocar o envelope de resposta de um projeto existente é uma mudança incompatível de contrato e exige aprovação humana.
+Import `gobox/httpserver/respond` directly — don't copy the code into the local repository. Swapping an existing project's response envelope is an incompatible contract change and requires human approval.
 
-## Erro de domínio → status HTTP
+## Domain error → HTTP status
 
-Ao criar/editar um handler: mapeie explicitamente cada erro de domínio relevante para o status HTTP correto via `errors.Is`/`errors.As`. Não deixe todo erro cair em 500 por omissão. Se encontrar uma anotação Swagger que não bate com o comportamento real do código, corrija um dos dois lados (preferencialmente o código, se o contrato documentado for o esperado pelo consumidor) e sinalize a inconsistência.
+When creating/editing a handler: explicitly map each relevant domain error to the correct HTTP status via `errors.Is`/`errors.As`. Don't let every error fall through to 500 by default. If you find a Swagger annotation that doesn't match the code's actual behavior, fix one of the two sides (preferably the code, if the documented contract is what the consumer expects) and flag the inconsistency.
 
-## Autenticação e autorização
+## Authentication and authorization
 
-- Autenticação: sempre via `gobox/oidcauth` (Bearer/cookie OIDC contra o provider OIDC configurado). **Nunca** implemente verificação de JWT/introspecção do zero.
-- Autorização humana: RBAC declarativo por rota, permissão nomeada `"recurso:acao"` (ex.: `"invoice:validate"`, `"company:read"`). A checagem sempre acontece no middleware/router, nunca dentro do usecase.
-- Autorização M2M (serviço-a-serviço, webhooks): scope OAuth (`RequireScope`) + verificação de `azp` (authorized party) quando o cliente é conhecido.
+- Authentication: always via `gobox/oidcauth` (Bearer/cookie OIDC against the configured OIDC provider). **Never** implement JWT verification/introspection from scratch.
+- Human authorization: declarative RBAC per route, permission named `"resource:action"` (e.g., `"invoice:validate"`, `"company:read"`). The check always happens in the middleware/router, never inside the usecase.
+- M2M authorization (service-to-service, webhooks): OAuth scope (`RequireScope`) + `azp` (authorized party) verification when the client is known.
 
 ## Webhooks
 
-Dois mecanismos de autenticação são válidos, dependendo da capacidade do sistema de origem:
-- **M2M OIDC completo**: Bearer client_credentials, scope + `azp` obrigatórios. Use quando o sistema de origem fala OIDC nativamente.
-- **Token estático**: token fixo em query string, comparado com `subtle.ConstantTimeCompare` sobre SHA-256, **e redigido do log de acesso antes de escrever**. Use apenas quando o sistema de origem não oferece OIDC — sempre implemente a comparação em tempo constante e a redação em log.
+Two authentication mechanisms are valid, depending on the source system's capability:
+- **Full M2M OIDC**: client_credentials Bearer, scope + `azp` required. Use when the source system speaks OIDC natively.
+- **Static token**: fixed token in the query string, compared with `subtle.ConstantTimeCompare` over SHA-256, **and redacted from the access log before writing**. Use only when the source system doesn't offer OIDC — always implement constant-time comparison and log redaction.
 
-## Validação de entrada
+## Input validation
 
-- `go-playground/validator` via tags `binding:"required"` do Gin (`ctx.ShouldBindJSON`).
-- Trate o erro de bind explicitamente. Não deixe a mensagem crua do validator (inglês, formato `"Key: '...' Error:Field validation..."`) vazar para o campo `details`/`error` da resposta — parseie campo-a-campo.
+- `go-playground/validator` via Gin's `binding:"required"` tags (`ctx.ShouldBindJSON`).
+- Handle the bind error explicitly. Don't let the validator's raw message (English, format `"Key: '...' Error:Field validation..."`) leak into the response's `details`/`error` field — parse it field-by-field.
 
-## Paginação
+## Pagination
 
-Sempre via `github.com/raykavin/gobox/pagination`:
+Always via `github.com/raykavin/gobox/pagination`:
 ```go
-filters := pagination.NewFilterBuilder().WhereIf(cond, "coluna", pagination.Eq, valor).Build()
+filters := pagination.NewFilterBuilder().WhereIf(cond, "column", pagination.Eq, value).Build()
 sorts := pagination.NewSortBuilder().OrderBy("created_at", pagination.Desc).Build()
 query := pagination.NewQuery(page, filters, sorts)
-db.Scopes(pagination.Scope(query, &total)).Find(&resultados)
-result := pagination.NewResult(resultados, int(total), query.Page)
+db.Scopes(pagination.Scope(query, &total)).Find(&results)
+result := pagination.NewResult(results, int(total), query.Page)
 ```
-Entrada de paginação sempre pelo **corpo** da requisição (dentro do filtro de `POST /recurso/search`), nunca por querystring `?page=`. Nota: `pagination.Scope` é específico para `*gorm.DB` — se o projeto usa pgx puro, implemente `LIMIT`/`OFFSET` manual a partir de `Query.Page.Offset()`/`PerPage`, replicando os mesmos nomes de campo por consistência.
+Pagination input always through the request **body** (inside the filter of `POST /resource/search`), never through a `?page=` querystring. Note: `pagination.Scope` is specific to `*gorm.DB` — if the project uses plain pgx, implement manual `LIMIT`/`OFFSET` from `Query.Page.Offset()`/`PerPage`, replicating the same field names for consistency.
 
-## Idempotência de ingestão
+## Ingestion idempotency
 
-Para upload de arquivo, importação de planilha, ou processamento assíncrono de retorno: hash SHA-256 do conteúdo + índice único composto `(escopo_pai_id, file_hash)` + fluxo find-or-create no usecase. Documente explicitamente a janela de corrida aceita (double-upload concorrente do mesmo arquivo).
+For file upload, spreadsheet import, or async processing of a return/callback: SHA-256 hash of the content + composite unique index `(parent_scope_id, file_hash)` + find-or-create flow in the usecase. Explicitly document the accepted race window (concurrent double-upload of the same file).
 
-## Documentação OpenAPI
+## OpenAPI documentation
 
-`swaggo/swag`, gerado via `make swagger` a partir de anotações `@Summary/@Router/@Success/@Failure` nos handlers. Toda tarefa que muda o comportamento de um endpoint deve regenerar a documentação e verificar que as anotações batem com o código real.
+`swaggo/swag`, generated via `make swagger` from `@Summary/@Router/@Success/@Failure` annotations on handlers. Every task that changes an endpoint's behavior must regenerate the documentation and verify the annotations match the actual code.
 
-## Alterações que exigem aprovação humana
+## Changes that require human approval
 
-Qualquer mudança que quebre compatibilidade retroativa de um endpoint existente: remover/renomear campo de resposta, trocar o envelope de resposta, trocar o verbo HTTP, mudar o formato de paginação, remover uma permissão exigida. Ver seção "Operações que exigem aprovação" em `AGENTS.md`.
+Any change that breaks backward compatibility of an existing endpoint: removing/renaming a response field, changing the response envelope, changing the HTTP verb, changing the pagination format, removing a required permission. See "Operations that require approval" in `AGENTS.md`.

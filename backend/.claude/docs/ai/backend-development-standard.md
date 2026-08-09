@@ -1,49 +1,49 @@
-# Padrão de desenvolvimento backend (Go)
+# Backend development standard (Go)
 
-Padrão de referência para serviços backend Go construídos a partir deste template.
+Reference standard for Go backend services built from this template.
 
-## Princípios de engenharia
+## Engineering principles
 
-1. Simplicidade e legibilidade acima de abstração especulativa — composição manual e explícita, sem framework de DI.
-2. Reuso via `gobox` (`github.com/raykavin/gobox`) é a intenção declarada — antes de escrever logger, config loader, envelope HTTP, paginação, cliente OIDC ou wrapper de banco, verifique se já existe em `gobox`.
-3. Menor mudança coerente: os usecases são um arquivo por operação (`create.go`, `update.go`, `find_or_create.go`) — não agrupe múltiplas operações não relacionadas no mesmo arquivo/função.
+1. Simplicity and readability over speculative abstraction — manual and explicit composition, no DI framework.
+2. Reuse via `gobox` (`github.com/raykavin/gobox`) is the declared intent — before writing a logger, config loader, HTTP envelope, pagination, OIDC client, or database wrapper, check whether it already exists in `gobox`.
+3. Smallest coherent change: usecases are one file per operation (`create.go`, `update.go`, `find_or_create.go`) — don't group unrelated operations in the same file/function.
 
-## Arquitetura padrão
+## Standard architecture
 
-Hexagonal / ports-and-adapters, com esta divisão de pastas em `internal/`:
+Hexagonal / ports-and-adapters, with this folder split under `internal/`:
 
 ```
 internal/
-  domain/    entidades GORM (BaseModel: ID/CreatedAt/UpdatedAt/DeletedAt), value objects, regras de invariante — SEM import de adapter/infra/config
-  port/      interfaces: contratos de repositório e de serviços externos, consumidos por usecase
-  usecase/   1 arquivo por operação de negócio; depende só de port, nunca de adapter/outbound diretamente
+  domain/    GORM entities (BaseModel: ID/CreatedAt/UpdatedAt/DeletedAt), value objects, invariant rules — NO import of adapter/infra/config
+  port/      interfaces: repository and external-service contracts, consumed by usecase
+  usecase/   1 file per business operation; depends only on port, never directly on adapter/outbound
   adapter/
-    inbound/http/   handler (bind+validação+delega), middleware, response (envelope), router
-    outbound/<x>/    implementação concreta de port (postgres, integrações externas)
-  app/       DI manual: bootstrap.go monta tudo e devolve as dependências prontas para cmd/*/main.go
-  config/    carregamento e validação de configuração por entrypoint (api, worker)
-  dto/       objetos de request/response da camada HTTP
+    inbound/http/   handler (bind+validate+delegate), middleware, response (envelope), router
+    outbound/<x>/    concrete implementation of port (postgres, external integrations)
+  app/       manual DI: bootstrap.go wires everything and hands ready-to-use dependencies to cmd/*/main.go
+  config/    configuration loading and validation per entry point (api, worker)
+  dto/       HTTP-layer request/response objects
 ```
 
-**Regras de dependência (proibidas/permitidas):**
-- `domain` não importa nada de `adapter`, `infra`, `config` ou `app`.
-- `usecase` importa `domain` e `port`; nunca importa `adapter/outbound` diretamente (só a interface em `port`).
-- `adapter/outbound/*` implementa as interfaces de `port`; é o único lugar onde GORM/drivers de banco/clientes HTTP de terceiros aparecem.
-- `adapter/inbound/http/handler` não implementa regra de negócio — valida entrada, chama 1 usecase, formata a saída.
-- A montagem (wiring) de tudo isso é centralizada em `internal/app/` (ou `internal/platform/`), chamada uma única vez em cada `cmd/*/main.go`.
+**Dependency rules (forbidden/allowed):**
+- `domain` doesn't import anything from `adapter`, `infra`, `config`, or `app`.
+- `usecase` imports `domain` and `port`; never imports `adapter/outbound` directly (only the interface in `port`).
+- `adapter/outbound/*` implements the `port` interfaces; it's the only place where GORM/database drivers/third-party HTTP clients appear.
+- `adapter/inbound/http/handler` doesn't implement business rules — validates input, calls 1 usecase, formats the output.
+- Wiring all of this together is centralized in `internal/app/` (or `internal/platform/`), called once in each `cmd/*/main.go`.
 
-**Injeção de dependência: manual, sem framework.** Não introduza Uber Fx, Wire ou equivalente salvo decisão explícita.
+**Dependency injection: manual, no framework.** Don't introduce Uber Fx, Wire, or equivalent without an explicit decision.
 
-**Múltiplos binários em `cmd/`.** Cada processo com ciclo de vida distinto (API HTTP, worker assíncrono, migrator, CLI de diagnóstico) é um binário próprio em `cmd/<nome>/main.go`, todos consumindo o mesmo `internal/app`. Não coloque lógica de negócio em `main.go` além de: parse de flags, carregar config, chamar bootstrap, iniciar/parar o processo.
+**Multiple binaries under `cmd/`.** Each process with a distinct lifecycle (HTTP API, async worker, migrator, diagnostic CLI) is its own binary at `cmd/<name>/main.go`, all consuming the same `internal/app`. Don't put business logic in `main.go` beyond: parsing flags, loading config, calling bootstrap, starting/stopping the process.
 
-**Dois servidores HTTP por serviço.** Servidor de negócio (rotas `/api/v1/...`) e servidor de health check em porta separada, configurável independentemente. Prefira, quando prático, expor `/healthz` (liveness) e `/readyz` (readiness) como endpoints distintos no servidor de health.
+**Two HTTP servers per service.** A business server (routes `/api/v1/...`) and a health-check server on a separate, independently configurable port. Prefer, when practical, exposing `/healthz` (liveness) and `/readyz` (readiness) as distinct endpoints on the health server.
 
-## Estrutura recomendada de novo projeto
+## Recommended structure for a new project
 
-Ver [new-project-checklist.md](new-project-checklist.md) para o passo a passo completo. Resumo da árvore inicial:
+See [new-project-checklist.md](new-project-checklist.md) for the full step-by-step. Summary of the initial tree:
 ```
 cmd/api/main.go
-cmd/worker/main.go        # se houver processamento assíncrono
+cmd/worker/main.go        # if there is async processing
 configs/{api,worker}.example.yml
 internal/{domain,port,usecase,adapter,app,config,dto}/
 scripts/sh/{build,deploy,test,swagger,healthcheck}.sh
@@ -53,98 +53,98 @@ Dockerfile
 .golangci.yml
 ```
 
-## Convenções de código
+## Code conventions
 
-| Tema | Regra |
+| Topic | Rule |
 |---|---|
-| Nome de arquivo | `snake_case.go`, um arquivo por operação em `usecase/` |
-| DTOs | `binding:"required"` (tags do Gin/validator), nunca `validate:` standalone |
-| Erros de domínio | sentinelas locais (`var ErrX = errors.New(...)`) + `fmt.Errorf("%w: ...", ErrX)`; sem pacote central de erros |
-| ID de entidade | `uint` autoincrement via `BaseModel` embutido é o padrão; use `uuid.UUID` quando o ID precisar ser gerado/exposto externamente sem coordenação |
-| Base de entidade | `BaseModel{ID, CreatedAt, UpdatedAt time.Time, DeletedAt gorm.DeletedAt}` embutido — ver `instructions/database.md` |
-| Paginação | `github.com/raykavin/gobox/pagination` — `Page`/`Result[T]`/`Scope` — nunca reimplementar |
-| Logging | `github.com/raykavin/gobox/logger` (zerolog por baixo) — nunca criar wrapper local novo |
-| Resposta HTTP | `github.com/raykavin/gobox/httpserver/respond` — importar, não copiar |
+| File name | `snake_case.go`, one file per operation in `usecase/` |
+| DTOs | `binding:"required"` (Gin/validator tags), never standalone `validate:` |
+| Domain errors | local sentinels (`var ErrX = errors.New(...)`) + `fmt.Errorf("%w: ...", ErrX)`; no central error package |
+| Entity ID | `uint` autoincrement via an embedded `BaseModel` is the standard; use `uuid.UUID` when the ID needs to be generated/exposed externally without coordination |
+| Entity base | `BaseModel{ID, CreatedAt, UpdatedAt time.Time, DeletedAt gorm.DeletedAt}` embedded — see `instructions/database.md` |
+| Pagination | `github.com/raykavin/gobox/pagination` — `Page`/`Result[T]`/`Scope` — never reimplement |
+| Logging | `github.com/raykavin/gobox/logger` (zerolog underneath) — never create a new local wrapper |
+| HTTP response | `github.com/raykavin/gobox/httpserver/respond` — import, don't copy |
 
-Detalhe completo por tema em `instructions/go.md`.
+Full detail per topic in `instructions/go.md`.
 
 ## APIs
 
-- Framework: **Gin**. Prefixo de rota fixo `/api/v1`. Recursos em kebab-case, plural (`bank-accounts`, `document-types`).
-- Leitura por ID: `GET /recurso/:id`. Busca com filtro: `POST /recurso/search` com o filtro no body — é o padrão a seguir mesmo parecendo não-RESTful, porque é o que `gobox/pagination` espera (filtro complexo não cabe bem em querystring).
-- Update: `PATCH` por padrão; use `PUT` apenas quando o recurso inteiro é substituído.
-- Autenticação: `github.com/raykavin/gobox/oidcauth` + `gobox/httpserver/middlewares`. **Nunca crie um novo verificador OIDC do zero.**
-- Autorização: declarativa por rota/grupo, nunca dentro do usecase. Permissão nomeada `"recurso:acao"` (ex.: `"invoice:validate"`) para usuários humanos; scope OAuth (`"servico:webhook:write"`) para clientes M2M.
-- Validação: `go-playground/validator` via tags do Gin. Trate o erro de bind explicitamente — não deixe a mensagem crua do validator (em inglês) vazar para o cliente; parseie campo-a-campo.
-- Paginação: sempre via `gobox/pagination`. Nunca implemente `LIMIT`/`OFFSET` manual em código novo se o projeto já usa GORM.
-- Idempotência de ingestão (upload de arquivo, importação, webhook): hash SHA-256 do conteúdo + índice único composto com o escopo pai (`(parent_id, file_hash)`) + fluxo find-or-create no usecase. Use `clause.OnConflict{DoNothing:true}` do GORM quando não precisar devolver o registro existente.
-- Documentação: `swaggo/swag`, anotações nos handlers, gerado via `make swagger`. **Mantenha as anotações `@Failure`/`@Success` sincronizadas com o `switch`/mapeamento de erro real do handler.**
+- Framework: **Gin**. Fixed route prefix `/api/v1`. Resources in plural kebab-case (`bank-accounts`, `document-types`).
+- Read by ID: `GET /resource/:id`. Search with filter: `POST /resource/search` with the filter in the body — this is the pattern to follow even though it looks non-RESTful, because it's what `gobox/pagination` expects (a complex filter doesn't fit well in a querystring).
+- Update: `PATCH` by default; use `PUT` only when the entire resource is replaced.
+- Authentication: `github.com/raykavin/gobox/oidcauth` + `gobox/httpserver/middlewares`. **Never create a new OIDC verifier from scratch.**
+- Authorization: declarative per route/group, never inside the usecase. Permission named `"resource:action"` (e.g., `"invoice:validate"`) for human users; OAuth scope (`"service:webhook:write"`) for M2M clients.
+- Validation: `go-playground/validator` via Gin tags. Handle the bind error explicitly — don't let the validator's raw message (in English) leak to the client; parse it field-by-field.
+- Pagination: always via `gobox/pagination`. Never implement manual `LIMIT`/`OFFSET` in new code if the project already uses GORM.
+- Ingestion idempotency (file upload, import, webhook): SHA-256 hash of the content + composite unique index with the parent scope (`(parent_id, file_hash)`) + find-or-create flow in the usecase. Use GORM's `clause.OnConflict{DoNothing:true}` when you don't need to return the existing record.
+- Documentation: `swaggo/swag`, annotations on handlers, generated via `make swagger`. **Keep the `@Failure`/`@Success` annotations in sync with the handler's actual `switch`/error mapping.**
 
-## Dados
+## Data
 
-- ORM: GORM sobre Postgres (produção) / SQLite (desenvolvimento) é o padrão para serviços com domínio relacional. pgx puro sem ORM é aceitável apenas quando a entidade é simples (poucas colunas, sem relações) e há forte pressão de performance/controle — não é o padrão para novos serviços de domínio relacional geral.
-- Migrations vs. `AutoMigrate`: `db.AutoMigrate` no boot é aceitável em fase inicial/baixo risco, mas tem risco real em produção (sem rollback, sem histórico de versão, `ALTER`/índice não roda `CONCURRENTLY`). Para dados críticos, prefira migrations versionadas (`golang-migrate` + binário `migrator` dedicado).
-- Transações: use um `TransactionRunner`/Unit-of-Work propagado por `context.Context`. Não faça usecases multi-etapa sem transação.
-- N+1: use `Preload` do GORM para hidratar associações em leituras; reserve `Joins` manual para filtros de busca.
-- Soft delete: `gorm.DeletedAt` embutido no `BaseModel`. Se a entidade tiver índice único que precise ignorar linhas soft-deleted, use índice único parcial (`uniqueIndex:...,where:deleted_at IS NULL`).
+- ORM: GORM over Postgres (production) / SQLite (development) is the standard for services with a relational domain. Plain pgx without an ORM is acceptable only when the entity is simple (few columns, no relations) and there's strong performance/control pressure — it's not the standard for new general relational-domain services.
+- Migrations vs. `AutoMigrate`: `db.AutoMigrate` at boot is acceptable in an early/low-risk stage, but has real risk in production (no rollback, no version history, index creation doesn't run `CONCURRENTLY`). For critical data, prefer versioned migrations (`golang-migrate` + a dedicated `migrator` binary).
+- Transactions: use a `TransactionRunner`/Unit-of-Work propagated via `context.Context`. Don't write multi-step usecases without a transaction.
+- N+1: use GORM's `Preload` to hydrate associations on reads; reserve manual `Joins` for search filters.
+- Soft delete: `gorm.DeletedAt` embedded in `BaseModel`. If an entity has a unique index that needs to ignore soft-deleted rows, use a partial unique index (`uniqueIndex:...,where:deleted_at IS NULL`).
 
-Detalhe completo em `instructions/database.md`.
+Full detail in `instructions/database.md`.
 
-## Erros
+## Errors
 
-- Sentinelas locais por pacote (`var ErrNotFound = errors.New(...)`), nunca um pacote central de exceções.
-- Wrap com `fmt.Errorf("%w: %w", ...)` (double-wrap, Go 1.20+) ou `errors.Join` quando aplicável.
-- No handler HTTP, mapeie o erro de domínio para status HTTP explicitamente (`errors.Is`/`errors.As`) — nunca deixe todo erro cair em 500 por omissão.
+- Local sentinels per package (`var ErrNotFound = errors.New(...)`), never a central exceptions package.
+- Wrap with `fmt.Errorf("%w: %w", ...)` (double-wrap, Go 1.20+) or `errors.Join` when applicable.
+- In the HTTP handler, explicitly map the domain error to an HTTP status (`errors.Is`/`errors.As`) — never let every error fall through to 500 by default.
 
 ## Logging
 
-- `github.com/raykavin/gobox/logger` (zerolog por baixo), configurável (console/JSON). Nunca escreva um wrapper zerolog novo.
-- Nunca logue payload completo de webhook/integração que carregue dado pessoal em nível `debug` sem redigir campos sensíveis.
+- `github.com/raykavin/gobox/logger` (zerolog underneath), configurable (console/JSON). Never write a new zerolog wrapper.
+- Never log a full webhook/integration payload carrying personal data at `debug` level without redacting sensitive fields.
 
-## Segurança
+## Security
 
-Ver `instructions/security.md` para a lista completa. Regras não-negociáveis:
-- Autenticação sempre via `gobox/oidcauth` — nunca reimplemente verificação de JWT/introspecção.
-- CORS sempre via `gobox/httpserver/middlewares` (versão atual, allowlist) — nunca copie/reimplemente CORS localmente.
-- CSRF obrigatório em qualquer rota que aceite cookie de sessão.
-- Segredos: apenas via `configs/*.example.yml` versionado + arquivo real no `.gitignore`. Nunca commit de arquivo com valor real, nem como "exemplo temporário".
+See `instructions/security.md` for the full list. Non-negotiable rules:
+- Authentication always via `gobox/oidcauth` — never reimplement JWT verification/introspection.
+- CORS always via `gobox/httpserver/middlewares` (current version, allowlist) — never copy/reimplement CORS locally.
+- CSRF required on any route that accepts a session cookie.
+- Secrets: only via a versioned `configs/*.example.yml` + the real file in `.gitignore`. Never commit a file with a real value, not even as a "temporary example".
 
-## Testes
+## Tests
 
-- Comando mínimo: `go test -v -race ./...`.
-- `go build ./...` e `go vet ./...` antes do teste.
-- `.golangci.yml` com o conjunto `govet, errcheck, staticcheck, ineffassign, unused, gofmt, goimports` como ponto de partida em projetos novos.
-- Mocks: prefira mocks funcionais escritos à mão (structs com campos `func`) ou SQLite in-memory para testes de repositório que envolvem transação/GORM real, em vez de depender de geração automática de mocks.
+- Minimum command: `go test -v -race ./...`.
+- `go build ./...` and `go vet ./...` before the test.
+- A `.golangci.yml` with `govet, errcheck, staticcheck, ineffassign, unused, gofmt, goimports` as a starting point for new projects.
+- Mocks: prefer hand-written functional mocks (structs with `func` fields) or SQLite in-memory for repository tests involving a real transaction/GORM, rather than relying on automatic mock generation.
 
-Detalhe completo em `instructions/testing.md`.
+Full detail in `instructions/testing.md`.
 
-## Documentação
+## Documentation
 
-- README com as seções: Arquitetura, Configuração, Execução local, Scripts/Makefile, Testes, Documentação da API.
-- Documentação para agentes de IA (`.claude/`, `AGENTS.md`) deve ser atualizada no mesmo PR que muda a estrutura que ela descreve.
+- README with the sections: Architecture, Configuration, Local execution, Scripts/Makefile, Tests, API documentation.
+- AI-agent documentation (`.claude/`, `AGENTS.md`) must be updated in the same PR that changes the structure it describes.
 
-## Observabilidade
+## Observability
 
-- Logging estruturado via `gobox/logger` é a base mínima obrigatória.
-- OpenTelemetry+Prometheus via `gobox/telemetry` é recomendado quando o projeto precisar de tracing/métricas, em vez de reimplementar.
+- Structured logging via `gobox/logger` is the mandatory baseline.
+- OpenTelemetry+Prometheus via `gobox/telemetry` is recommended when the project needs tracing/metrics, instead of reimplementing it.
 
-## Infraestrutura
+## Infrastructure
 
-- Dockerfile multi-stage: build em `golang:1.26-alpine3.22`, runtime em `alpine:3.22`, usuário non-root, `HEALTHCHECK` via `scripts/sh/healthcheck.sh`. **Confirme que o script referenciado existe** antes de considerar o build pronto.
-- `scripts/sh/build.sh` deve apontar para o caminho real do Dockerfile. Teste `make build` antes de considerar um novo projeto pronto.
-- `make {build,deploy,test,mocks,swagger}` delegando a `scripts/sh/*.sh` é o padrão de automação.
-- **CI/CD**: novo projeto deve incluir um pipeline básico (lint + build + test) desde o início. Ver `new-project-checklist.md`.
+- Multi-stage Dockerfile: build on `golang:1.26-alpine3.22`, runtime on `alpine:3.22`, non-root user, `HEALTHCHECK` via `scripts/sh/healthcheck.sh`. **Confirm the referenced script exists** before considering the build ready.
+- `scripts/sh/build.sh` must point to the Dockerfile's real path. Test `make build` before considering a new project ready.
+- `make {build,deploy,test,mocks,swagger}` delegating to `scripts/sh/*.sh` is the standard automation pattern.
+- **CI/CD**: a new project should include a basic pipeline (lint + build + test) from the start. See `new-project-checklist.md`.
 
-## Critérios de conclusão de uma tarefa
+## Task completion criteria
 
-Uma alteração só está concluída quando:
-1. `go build ./...` sem erro.
-2. `go vet ./...` sem erro.
-3. `golangci-lint run` sem erro, se o projeto tiver `.golangci.yml` (ou foi adicionado como parte da tarefa).
-4. `go test -v -race ./...` sem falha, incluindo testes novos/atualizados para o comportamento alterado.
-5. Contratos públicos (rotas HTTP, schema de banco, formato de resposta) preservados, salvo autorização explícita.
-6. Documentação (README/Swagger/comentário godoc) atualizada se o comportamento documentado mudou.
+A change is only complete when:
+1. `go build ./...` with no error.
+2. `go vet ./...` with no error.
+3. `golangci-lint run` with no error, if the project has a `.golangci.yml` (or one was added as part of the task).
+4. `go test -v -race ./...` with no failure, including new/updated tests for the changed behavior.
+5. Public contracts (HTTP routes, database schema, response format) preserved, unless explicitly authorized.
+6. Documentation (README/Swagger/godoc comment) updated if the documented behavior changed.
 
-## Decisões que exigem aprovação humana
+## Decisions requiring human approval
 
-Ver seção "Operações que exigem aprovação" em [../../AGENTS.md](../../AGENTS.md).
+See the "Operations that require approval" section in [../../AGENTS.md](../../AGENTS.md).

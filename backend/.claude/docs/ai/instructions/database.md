@@ -1,67 +1,67 @@
-# Instruções específicas — Banco de dados e persistência
+# Specific instructions — Database and persistence
 
-Complementa `AGENTS.md`.
+Complements `AGENTS.md`.
 
-## ORM e driver
+## ORM and driver
 
-- GORM sobre Postgres é o padrão para domínio relacional geral. Use `github.com/raykavin/gobox/database/gorm` como factory de conexão (retry de conexão embutido, pool configurável via `GormConfig`) — não abra a conexão manualmente com `gorm.Open` direto.
-- SQLite é aceitável para desenvolvimento local ou serviços de baixa escala sem infraestrutura de banco compartilhada.
-- pgx puro (`jackc/pgx/v5`) sem ORM é aceitável **apenas** para entidades simples (poucas colunas, sem relações profundas) com alta pressão de performance/controle explícito sobre SQL. Para entidades com muitos campos JSONB aninhados, essa abordagem fica visivelmente mais verbosa que GORM — não escolha pgx puro só por preferência estilística quando a entidade tem essa forma; avalie o trade-off real antes.
+- GORM over Postgres is the standard for a general relational domain. Use `github.com/raykavin/gobox/database/gorm` as the connection factory (built-in connection retry, configurable pool via `GormConfig`) — don't open the connection manually with `gorm.Open` directly.
+- SQLite is acceptable for local development or low-scale services without shared database infrastructure.
+- Plain pgx (`jackc/pgx/v5`) without an ORM is acceptable **only** for simple entities (few columns, no deep relations) with high performance/explicit-SQL-control pressure. For entities with many nested JSONB fields, this approach becomes noticeably more verbose than GORM — don't choose plain pgx purely for stylistic preference when the entity has that shape; weigh the real trade-off first.
 
-## Modelo base e ID de entidade
+## Base model and entity ID
 
-Padrão recomendado: `uint` autoincrement, embutido via `BaseModel`. Use `uuid.UUID` (`gorm:"default:gen_random_uuid()"`) quando o ID precisar ser exposto ou gerado externamente sem coordenação (ex.: sincronização multi-serviço, geração no cliente).
+Recommended default: `uint` autoincrement, embedded via `BaseModel`. Use `uuid.UUID` (`gorm:"default:gen_random_uuid()"`) when the ID needs to be exposed or generated externally without coordination (e.g., multi-service sync, client-side generation).
 
-Estrutura recomendada (independentemente do tipo de ID escolhido):
+Recommended structure (regardless of the chosen ID type):
 ```go
 type BaseModel struct {
-    ID        <uint ou uuid.UUID>
+    ID        <uint or uuid.UUID>
     CreatedAt time.Time
     UpdatedAt time.Time
     DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 ```
-Embuta em toda entidade persistida. Para entidades de junção/histórico append-only sem necessidade de update/soft-delete, é aceitável omitir `DeletedAt` — mas documente por quê no próprio código.
+Embed it in every persisted entity. For join/append-only history entities that don't need update/soft-delete, it's acceptable to omit `DeletedAt` — but document why in the code itself.
 
 ## Soft delete
 
-- `gorm.DeletedAt` é o mecanismo padrão, embutido via `BaseModel`.
-- Se uma coluna precisar de unicidade que ignore linhas soft-deleted, use índice único parcial: `gorm:"uniqueIndex:uq_x,where:deleted_at IS NULL"` — sem essa proteção não é possível recriar um registro com o mesmo valor único após soft-delete.
+- `gorm.DeletedAt` is the standard mechanism, embedded via `BaseModel`.
+- If a column needs uniqueness that ignores soft-deleted rows, use a partial unique index: `gorm:"uniqueIndex:uq_x,where:deleted_at IS NULL"` — without this protection it's not possible to recreate a record with the same unique value after a soft delete.
 
 ## Migrations vs. AutoMigrate
 
-- `db.AutoMigrate(...)` chamado uma vez no boot do processo é conveniente para fase inicial/protótipo/domínio de baixo risco, mas: sem histórico de versão, sem `Down`, sem revisão humana antes de alterar produção, e a criação de índice não usa `CONCURRENTLY` (pode bloquear tabela grande).
-- Para dados críticos/financeiros: prefira migrations SQL versionadas (`golang-migrate`, formato `NNNNNN_descricao.up.sql`/`.down.sql`) aplicadas por um binário `cmd/migrator` dedicado, **não** rodado automaticamente no boot da API/worker.
-- **Regra não-negociável independentemente da decisão acima**: não altere uma migration já aplicada em produção — crie uma nova. Qualquer `DROP COLUMN`/`DROP TABLE`/`ALTER TYPE`/`RENAME` em uma tabela com dados reais exige aprovação humana explícita (ver `AGENTS.md`).
+- `db.AutoMigrate(...)` called once at process boot is convenient for an early stage/prototype/low-risk domain, but has real risk: no version history, no `Down`, no human review before altering production, and index creation doesn't run `CONCURRENTLY` (can lock a large table).
+- For critical/financial data: prefer versioned SQL migrations (`golang-migrate`, `NNNNNN_description.up.sql`/`.down.sql` format) applied by a dedicated `cmd/migrator` binary, **not** run automatically at API/worker boot.
+- **Non-negotiable rule regardless of the above decision**: don't modify a migration already applied in production — create a new one. Any `DROP COLUMN`/`DROP TABLE`/`ALTER TYPE`/`RENAME` on a table with real data requires explicit human approval (see `AGENTS.md`).
 
-## Transações e Unit of Work
+## Transactions and Unit of Work
 
-- Implemente uma interface `port.TransactionRunner` com `RunInTransaction(ctx, fn func(ctx) error)`, sobre `gorm.DB.Transaction`, propagada via `context.WithValue` — cada repositório usa um helper `dbFor(ctx, r.db)` que usa a transação ambiente se existir, senão a conexão base.
-- Usecases multi-etapa (ex.: dois `Upsert` sequenciais em tabelas diferentes) precisam ser atômicos — não escreva um usecase multi-etapa sem transação.
-- Para testes de repositório que envolvem transação real, use SQLite in-memory (`sqlite.Open(":memory:")` ou `file:name?mode=memory&cache=shared`) em vez de mockar cada colaborador.
+- Implement a `port.TransactionRunner` interface with `RunInTransaction(ctx, fn func(ctx) error)`, over `gorm.DB.Transaction`, propagated via `context.WithValue` — each repository uses a `dbFor(ctx, r.db)` helper that uses the ambient transaction if present, otherwise the base connection.
+- Multi-step usecases (e.g., two sequential `Upsert`s across different tables) need to be atomic — don't write a multi-step usecase without a transaction.
+- For repository tests involving a real transaction, use SQLite in-memory (`sqlite.Open(":memory:")` or `file:name?mode=memory&cache=shared`) instead of mocking every collaborator.
 
-## N+1 e queries
+## N+1 and queries
 
-- Use `Preload("Relação")` do GORM para hidratar associações em métodos de leitura. Encadeie (`Preload("A.B")`) para relações de segundo nível.
-- Reserve `.Joins(...)` manual para filtros de busca (ex.: `Joins("LEFT JOIN people ON ...")` dentro de um método `Filter`/`Search`), nunca para carregar associações que deveriam usar `Preload`.
+- Use GORM's `Preload("Relation")` to hydrate associations in read methods. Chain (`Preload("A.B")`) for second-level relations.
+- Reserve manual `.Joins(...)` for search filters (e.g., `Joins("LEFT JOIN people ON ...")` inside a `Filter`/`Search` method), never to load associations that should use `Preload`.
 
-## Paginação na camada de repositório
+## Pagination at the repository layer
 
-Via `github.com/raykavin/gobox/pagination` (`Scope(query, &total)` como `gorm.Scopes`). Ver `instructions/api.md` para o padrão completo de uso ponta a ponta.
+Via `github.com/raykavin/gobox/pagination` (`Scope(query, &total)` as a `gorm.Scopes`). See `instructions/api.md` for the full end-to-end usage pattern.
 
-## Idempotência de escrita
+## Write idempotency
 
-- Padrão preferido para "buscar ou criar" (quando o chamador precisa do registro, existente ou novo): hash de conteúdo + índice único composto + find-or-create no usecase.
-- Padrão preferido para "gravar e ignorar duplicata" (quando o chamador não precisa do registro de volta): `clause.OnConflict{DoNothing: true}` ou `{Columns: [...], DoNothing: true}` do GORM.
-- Padrão preferido para upsert completo (criar ou sobrescrever): `clause.OnConflict{Columns: [...], UpdateAll: true}`.
-- Não use `FirstOrCreate` do GORM sem avaliar condição de corrida — prefira o padrão explícito find-then-create-or-conflict acima.
+- Preferred pattern for "find or create" (when the caller needs the record back, existing or new): content hash + composite unique index + find-or-create in the usecase.
+- Preferred pattern for "write and ignore duplicate" (when the caller doesn't need the record back): GORM's `clause.OnConflict{DoNothing: true}` or `{Columns: [...], DoNothing: true}`.
+- Preferred pattern for a full upsert (create or overwrite): `clause.OnConflict{Columns: [...], UpdateAll: true}`.
+- Don't use GORM's `FirstOrCreate` without evaluating the race condition — prefer the explicit find-then-create-or-conflict pattern above.
 
-## Índices, FKs e nomenclatura
+## Indexes, FKs, and naming
 
-- Convenção de nome de índice: `idx_<tabela>_<coluna(s)>`. Únicos compostos: prefira `uq_<tabela>_<colunas>` — evite o prefixo `idx_` para índices únicos.
-- FKs via GORM: `gorm:"foreignKey:X;references:ID"`. Documente explicitamente quando uma referência é proposital sem FK ("weak reference" documentado no comentário da migration e no struct Go) — não adicione uma FK "corretiva" sem entender por que ela foi omitida.
-- Ao escrever migrations SQL (quando o projeto usa esse mecanismo): agrupe `CREATE INDEX`/`ALTER TABLE ... ADD CONSTRAINT` em blocos idempotentes (`DO $$ IF NOT EXISTS ... END$$;`). Use `CREATE INDEX CONCURRENTLY` ao adicionar índice em tabela que já tem dados em produção.
+- Index naming convention: `idx_<table>_<column(s)>`. Composite uniques: prefer `uq_<table>_<columns>` — avoid the `idx_` prefix for unique indexes.
+- FKs via GORM: `gorm:"foreignKey:X;references:ID"`. Explicitly document when a reference is intentionally without an FK ("weak reference" documented in the migration comment and the Go struct) — don't add a "corrective" FK without understanding why it was omitted.
+- When writing SQL migrations (when the project uses that mechanism): group `CREATE INDEX`/`ALTER TABLE ... ADD CONSTRAINT` in idempotent blocks (`DO $$ IF NOT EXISTS ... END$$;`). Use `CREATE INDEX CONCURRENTLY` when adding an index to a table that already has data in production.
 
-## Riscos que exigem aprovação humana
+## Risks that require human approval
 
-`DROP TABLE`, `DROP COLUMN`, `ALTER TYPE`, `RENAME TABLE`/`RENAME COLUMN` em qualquer migration que possa rodar contra dados reais.
+`DROP TABLE`, `DROP COLUMN`, `ALTER TYPE`, `RENAME TABLE`/`RENAME COLUMN` in any migration that could run against real data.

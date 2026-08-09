@@ -1,56 +1,56 @@
-# Instruções específicas — Segurança
+# Specific instructions — Security
 
-Complementa `AGENTS.md`. Nenhum valor de segredo real deve ser reproduzido em nenhum documento ou artefato deste repositório — apenas mecanismos.
+Complements `AGENTS.md`. No real secret value should ever be reproduced in any document or artifact in this repository — only mechanisms.
 
-## Autenticação
+## Authentication
 
-- **Sempre** via `github.com/raykavin/gobox/oidcauth` contra o provider OIDC configurado (Keycloak ou equivalente). Nunca implemente verificação de JWT/introspecção do zero — isso tende a criar forks divergentes que não recebem correções de segurança feitas no `gobox`.
-- JWT próprio + bcrypt + RBAC local (ex.: Casbin) é uma exceção aceitável apenas quando o serviço não depende de SSO corporativo/federado (produto standalone, RBAC single-org). Não migre para OIDC sem confirmar que o contexto de implantação mudou.
+- **Always** via `github.com/raykavin/gobox/oidcauth` against the configured OIDC provider (Keycloak or equivalent). Never implement JWT verification/introspection from scratch — this tends to create divergent forks that don't receive security fixes made in `gobox`.
+- A homegrown JWT + bcrypt + local RBAC (e.g., Casbin) is an acceptable exception only when the service doesn't depend on corporate/federated SSO (standalone product, single-org RBAC). Don't migrate to OIDC without confirming the deployment context changed.
 
-## Autorização
+## Authorization
 
-- RBAC declarativo por rota, permissão nomeada `"recurso:acao"`, ou scope OAuth para M2M. A checagem sempre no middleware/router — nunca dentro do usecase.
-- Evite vazar a decisão de autorização para a camada de dados via `ctx.Value` além do necessário para auditoria — isso mistura autorização declarativa com decisão imperativa a jusante e dificulta auditar "quem pode fazer o quê" só olhando o router.
+- Declarative RBAC per route, permission named `"resource:action"`, or OAuth scope for M2M. The check always happens in the middleware/router — never inside the usecase.
+- Avoid leaking the authorization decision into the data layer via `ctx.Value` beyond what's needed for auditing — this mixes declarative authorization with downstream imperative decisions and makes it harder to audit "who can do what" by just looking at the router.
 
 ## CORS
 
-- Sempre via `gobox/httpserver/middlewares` (versão atual, restritiva por allowlist de origem). Nunca copie/reimplemente CORS localmente — um fallback permissivo (`Access-Control-Allow-Origin: *` combinado com `Access-Control-Allow-Credentials: true`) é um erro comum em implementações locais e não deve existir em código novo.
+- Always via `gobox/httpserver/middlewares` (current version, restrictive by origin allowlist). Never copy/reimplement CORS locally — a permissive fallback (`Access-Control-Allow-Origin: *` combined with `Access-Control-Allow-Credentials: true`) is a common mistake in local implementations and shouldn't exist in new code.
 
 ## CSRF
 
-- Obrigatório em qualquer rota que aceite cookie de sessão: cookie HttpOnly + middleware CSRF via `gobox/httpserver/middlewares`.
-- Se uma rota ler cookie de sessão OIDC como fallback de autenticação mas não tiver middleware CSRF, isso é um gap de segurança — sinalize e trate como mudança que exige aprovação explícita (ver `AGENTS.md`).
+- Required on any route that accepts a session cookie: HttpOnly cookie + CSRF middleware via `gobox/httpserver/middlewares`.
+- If a route reads an OIDC session cookie as an authentication fallback but has no CSRF middleware, that's a security gap — flag it and treat it as a change that requires explicit approval (see `AGENTS.md`).
 
-## Gestão de segredos
+## Secrets management
 
-- Padrão: `configs/*.example.yml` versionado (com placeholders tipo `"changeme"`), arquivo real (`configs/*.yml` sem sufixo `.example`) sempre no `.gitignore`.
-- **Nunca** commit de arquivo de configuração com valor real, nem "temporariamente", nem em branch de feature.
-- Ao encontrar qualquer arquivo que pareça conter uma credencial/token real durante uma tarefa (mesmo não versionado, ex. em `temp/`), **não reproduza o valor em nenhum lugar** (código, log, resposta, commit) — apenas informe a localização ao responsável.
+- Standard: a versioned `configs/*.example.yml` (with placeholders like `"changeme"`), the real file (`configs/*.yml` without the `.example` suffix) always in `.gitignore`.
+- **Never** commit a configuration file with a real value, not even "temporarily", not even on a feature branch.
+- If you find any file that looks like it contains a real credential/token during a task (even if untracked, e.g. in `temp/`), **don't reproduce the value anywhere** (code, log, response, commit) — just report the location to the person responsible.
 
 ## Webhooks
 
-- Token estático: compare sempre com `subtle.ConstantTimeCompare` sobre hash (nunca `==` de string), e **redija o token de qualquer log de acesso/URL antes de escrever**.
-- M2M OIDC: exija scope + `azp` (authorized party) conhecido, não apenas um Bearer token válido genérico.
+- Static token: always compare with `subtle.ConstantTimeCompare` over a hash (never string `==`), and **redact the token from any access log/URL before writing it**.
+- M2M OIDC: require a known scope + `azp` (authorized party), not just a generic valid Bearer token.
 
 ## Rate limiting
 
-Não é implementado por padrão neste template — é uma recomendação para projetos que expõem endpoints de login e webhook publicamente, não uma garantia existente.
+Not implemented by default in this template — it's a recommendation for projects that expose login and webhook endpoints publicly, not an existing guarantee.
 
-## Dados sensíveis em log
+## Sensitive data in logs
 
-- Não existe mascaramento automático de PII em `gobox/logger` — cada projeto precisa resolver isso pontualmente.
-- Se a tarefa envolver logging de payload que contenha CPF/e-mail/telefone/dado bancário, redija explicitamente esses campos antes de logar, especialmente em nível `debug`/`info` — não assuma que existe proteção automática.
+- There's no automatic PII masking in `gobox/logger` — each project needs to handle this on a case-by-case basis.
+- If a task involves logging a payload containing a national ID, email, phone number, or banking data, explicitly redact those fields before logging, especially at `debug`/`info` level — don't assume automatic protection exists.
 
-## Separação de ambientes
+## Environment separation
 
-Segregue por arquivo de config diferente por processo (`api.yml` vs `api.dev.yml` vs `api.prod.yml`), não por variável `APP_ENV` lida em runtime. Trate `.gitignore`/scripts de deploy com cuidado — um arquivo de config real acidentalmente versionado é o vetor de vazamento mais comum.
+Segregate by a different config file per process (`api.yml` vs `api.dev.yml` vs `api.prod.yml`), not by an `APP_ENV` variable read at runtime. Handle `.gitignore`/deploy scripts with care — an accidentally versioned real config file is the most common leak vector.
 
-## Checklist de segurança para qualquer novo endpoint
+## Security checklist for any new endpoint
 
-1. Middleware de autenticação (`gobox/oidcauth`) aplicado ao grupo de rota correto.
-2. Middleware de autorização com permissão/scope específico da operação, não uma permissão genérica reaproveitada.
-3. CORS via `gobox/httpserver/middlewares`, não reimplementado.
-4. CSRF se a rota depende de cookie de sessão.
-5. Validação de entrada via binding+validator, sem vazar mensagem crua do validator ao cliente.
-6. Nenhum dado sensível logado sem redação, mesmo em nível debug.
-7. Se o endpoint é um webhook: comparação em tempo constante e redação de token em log.
+1. Authentication middleware (`gobox/oidcauth`) applied to the correct route group.
+2. Authorization middleware with a permission/scope specific to the operation, not a reused generic permission.
+3. CORS via `gobox/httpserver/middlewares`, not reimplemented.
+4. CSRF if the route depends on a session cookie.
+5. Input validation via binding+validator, without leaking the validator's raw message to the client.
+6. No sensitive data logged without redaction, even at debug level.
+7. If the endpoint is a webhook: constant-time comparison and token redaction in logs.
