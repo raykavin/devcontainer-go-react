@@ -9,6 +9,9 @@ help:
 	@echo "  back-test          Run backend tests"
 	@echo "  back-lint          Run golangci-lint on the backend"
 	@echo "  back-build         Build production backend image (backend/Dockerfile)"
+	@echo "  back-deploy        Push the backend image (scripts/sh/deploy.sh)"
+	@echo "  back-mocks         Generate backend mocks (pass args as MOCK_ARGS)"
+	@echo "  back-swagger       Generate backend Swagger docs (scripts/sh/swagger.sh)"
 	@echo "  front-dev          Start the Vite dev server (frontend/)"
 	@echo "  front-test         Run frontend tests"
 	@echo "  front-lint         Run frontend lint"
@@ -24,7 +27,7 @@ back-run:
 
 .PHONY: back-test
 back-test:
-	@cd backend && go test ./...
+	@cd backend && go test -v -race ./...
 
 .PHONY: back-lint
 back-lint:
@@ -35,6 +38,18 @@ back-build:
 	@docker build -f backend/Dockerfile \
 		--build-arg APP_NAME=$(PROJECT_NAME) \
 		-t $(PROJECT_NAME)-api:$(VERSION) backend/
+
+.PHONY: back-deploy
+back-deploy:
+	@cd backend && scripts/sh/deploy.sh $(PROJECT_NAME)-api $(VERSION)
+
+.PHONY: back-mocks
+back-mocks:
+	@cd backend && scripts/sh/generate-mocks.sh $(MOCK_ARGS)
+
+.PHONY: back-swagger
+back-swagger:
+	@cd backend && scripts/sh/swagger.sh
 
 .PHONY: front-dev
 front-dev:

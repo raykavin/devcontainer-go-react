@@ -36,7 +36,7 @@ Prefer one of these three patterns, in this order of preference for most cases:
 2. **`testify/mock`** — when `testify` is already used in the project.
 3. **Real SQLite in-memory** — to test a real transaction/GORM instead of mocking every collaborator. Prefer this option when the test needs to validate a real multi-table transaction.
 
-Don't rely on `make mocks`/`mockgen` without first confirming it actually generates useful artifacts in the project — it's common for this Makefile target to exist by copy from another project without ever having been used for real.
+Don't rely on `make back-mocks`/`mockgen` without first confirming it actually generates useful artifacts in the project — it's common for this Makefile target to exist by copy from another project without ever having been used for real.
 
 ## Coverage
 

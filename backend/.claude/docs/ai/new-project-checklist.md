@@ -74,18 +74,18 @@ Use as a starting point for a new Go backend service built from this template. I
 ## 12. Documentation
 
 - [ ] `README.md` with the sections: Architecture, Configuration, Local execution, Scripts/Makefile, Tests, API documentation.
-- [ ] Swagger (`swaggo/swag`) from the first endpoint, generated via `make swagger`.
+- [ ] Swagger (`swaggo/swag`) from the first endpoint, generated via `make back-swagger`.
 - [ ] The project's own `AGENTS.md`/`.claude/` (if the team uses AI agents on it) kept in sync with the real structure from the start.
 
 ## 13. Containers
 
 - [ ] Multi-stage Dockerfile `golang:1.26-alpine3.22` → `alpine:3.22`, non-root user, `HEALTHCHECK` via a real script.
-- [ ] Test `make build` and `docker build` locally before considering the project ready.
+- [ ] Test `make back-build` and `docker build` locally before considering the project ready.
 
 ## 14. Pipeline and deploy
 
 - [ ] Basic CI (lint+build+test) — see item 11.
-- [ ] `make deploy` → `scripts/sh/deploy.sh` (`docker push`) as the starting standard; introduce Kubernetes/Helm/automated rollback only on explicit request.
+- [ ] `make back-deploy` → `scripts/sh/deploy.sh` (`docker push`) as the starting standard; introduce Kubernetes/Helm/automated rollback only on explicit request.
 
 ## 15. Readiness criteria
 

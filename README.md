@@ -92,6 +92,9 @@ make dev                # Run both in parallel
 make test               # Backend + frontend tests
 make lint               # golangci-lint + frontend lint
 make back-build         # Production backend image
+make back-deploy        # Push the backend image
+make back-mocks         # Generate backend mocks (MOCK_ARGS=...)
+make back-swagger       # Generate backend Swagger docs
 make front-build        # Production frontend build (dist/)
 make front-build-image  # Production frontend image
 ```

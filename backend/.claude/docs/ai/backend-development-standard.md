@@ -78,7 +78,7 @@ Full detail per topic in `instructions/go.md`.
 - Validation: `go-playground/validator` via Gin tags. Handle the bind error explicitly — don't let the validator's raw message (in English) leak to the client; parse it field-by-field.
 - Pagination: always via `gobox/pagination`. Never implement manual `LIMIT`/`OFFSET` in new code if the project already uses GORM.
 - Ingestion idempotency (file upload, import, webhook): SHA-256 hash of the content + composite unique index with the parent scope (`(parent_id, file_hash)`) + find-or-create flow in the usecase. Use GORM's `clause.OnConflict{DoNothing:true}` when you don't need to return the existing record.
-- Documentation: `swaggo/swag`, annotations on handlers, generated via `make swagger`. **Keep the `@Failure`/`@Success` annotations in sync with the handler's actual `switch`/error mapping.**
+- Documentation: `swaggo/swag`, annotations on handlers, generated via `make back-swagger`. **Keep the `@Failure`/`@Success` annotations in sync with the handler's actual `switch`/error mapping.**
 
 ## Data
 
@@ -131,7 +131,7 @@ Full detail in `instructions/testing.md`.
 ## Infrastructure
 
 - Multi-stage Dockerfile: build on `golang:1.26-alpine3.22`, runtime on `alpine:3.22`, non-root user, `HEALTHCHECK` via `scripts/sh/healthcheck.sh`. **Confirm the referenced script exists** before considering the build ready.
-- `scripts/sh/build.sh` must point to the Dockerfile's real path. Test `make build` before considering a new project ready.
+- `scripts/sh/build.sh` must point to the Dockerfile's real path. Test `make back-build` before considering a new project ready.
 - `make {build,deploy,test,mocks,swagger}` delegating to `scripts/sh/*.sh` is the standard automation pattern.
 - **CI/CD**: a new project should include a basic pipeline (lint + build + test) from the start. See `new-project-checklist.md`.
 

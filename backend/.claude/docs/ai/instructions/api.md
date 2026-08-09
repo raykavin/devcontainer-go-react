@@ -65,7 +65,7 @@ For file upload, spreadsheet import, or async processing of a return/callback: S
 
 ## OpenAPI documentation
 
-`swaggo/swag`, generated via `make swagger` from `@Summary/@Router/@Success/@Failure` annotations on handlers. Every task that changes an endpoint's behavior must regenerate the documentation and verify the annotations match the actual code.
+`swaggo/swag`, generated via `make back-swagger` from `@Summary/@Router/@Success/@Failure` annotations on handlers. Every task that changes an endpoint's behavior must regenerate the documentation and verify the annotations match the actual code.
 
 ## Changes that require human approval
 

@@ -66,7 +66,7 @@ If any step can't run, state that explicitly in the final report.
 
 ## 10. Update documentation
 
-- Swagger annotations (`@Summary/@Router/@Success/@Failure`) in sync with the actual behavior — regenerate via `make swagger`.
+- Swagger annotations (`@Summary/@Router/@Success/@Failure`) in sync with the actual behavior — regenerate via `make back-swagger`.
 - README (relevant section: Architecture/Configuration/API) if the documented behavior changed.
 - The repository's own `.claude/`/`AGENTS.md`, if it exists and the change affects what it describes.
 
