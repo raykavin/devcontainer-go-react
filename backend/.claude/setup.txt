@@ -1,0 +1,2 @@
+Read AGENTS.md and docs/ai/backend-development-standard.md before starting.
+Follow docs/ai/instructions/ for topic-specific detail.

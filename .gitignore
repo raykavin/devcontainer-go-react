@@ -1,0 +1,64 @@
+# --- Go ---
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.coverprofile
+*.pprof
+__debug_bin*
+go.work
+go.work.sum
+vendor/
+
+# --- Node / Frontend ---
+node_modules/
+frontend/dist/
+.vite/
+*.tsbuildinfo
+
+# --- Build output ---
+bin/
+build/
+out/
+
+# --- Environment ---
+.env
+.env.*
+!.env.example
+
+# --- Config (real values; keep only *.example.yml versioned) ---
+configs/*.yml
+!configs/*.example.yml
+
+# --- Logs / temp ---
+*.log
+logs/
+*.tmp
+*.temp
+tmp/
+temp/
+
+# --- Profiling ---
+cpu.prof
+mem.prof
+*.trace
+
+# --- Docker ---
+.docker/
+docker-data/
+
+# --- IDEs ---
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+Thumbs.db
+desktop.ini

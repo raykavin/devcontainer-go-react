@@ -1,0 +1,40 @@
+services:
+  workspace:
+    tty: true
+    container_name: dev_my-app
+    restart: on-failure
+    working_dir: /workspaces/app
+    build:
+      context: .
+      target: development
+      args:
+        GO_VERSION: "1.26"
+        NODE_VERSION: "24"
+        TZ: "America/Belem"
+    networks:
+      - devnet
+    ports:
+      - "8080:8080"
+      - "5173:5173"
+    volumes:
+      - ./../:/workspaces/app:rw
+      # Go caches
+      - go_bin:/go/bin:rw
+      - go_pkg:/go/pkg:rw
+      # Frontend caches
+      - node_modules:/workspaces/app/frontend/node_modules:rw
+      - pnpm_store:/home/vscode/.local/share/pnpm/store:rw
+      # Claude Code state
+      - claude_code:/home/vscode/.claude:rw
+
+networks:
+  devnet:
+    name: devnet
+    driver: bridge
+
+volumes:
+  go_pkg:
+  go_bin:
+  node_modules:
+  pnpm_store:
+  claude_code:

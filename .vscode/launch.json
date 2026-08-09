@@ -1,0 +1,38 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "API Launcher",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/backend/cmd/api/main.go",
+            "args": [
+                "-config",
+                "configs/api.yml"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/backend",
+        },
+        {
+            "name": "Frontend Launcher",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "pnpm dev",
+            "cwd": "${workspaceFolder}/frontend",
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Fullstack Launcher (API + Frontend)",
+            "configurations": [
+                "API Launcher",
+                "Frontend Launcher"
+            ],
+            "stopAll": true
+        }
+    ]
+}
