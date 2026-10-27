@@ -47,7 +47,7 @@ echo "=== Full Stack Go + React devcontainer setup ==="
 echo ""
 
 PROJECT_NAME=$(ask  "Project name"                     "$(cur PROJECT_NAME)")
-GO_VERSION=$(ask_choice "Go version"                   "1.26 1.25"    "$(grep -o 'GO_VERSION: "[^"]*"' "$COMPOSE_FILE" | sed 's/.*"\(.*\)"/\1/')")
+GO_VERSION=$(ask_choice "Go version"                   "1.27 1.26"    "$(grep -o 'GO_VERSION: "[^"]*"' "$COMPOSE_FILE" | sed 's/.*"\(.*\)"/\1/')")
 NODE_VERSION=$(ask_choice "Node.js version"            "24 22 20"     "$(grep -o 'NODE_VERSION: "[^"]*"' "$COMPOSE_FILE" | sed 's/.*"\(.*\)"/\1/')")
 PKG_MANAGER=$(ask_choice "Package manager"             "pnpm npm"     "$(cur PKG_MANAGER)")
 TIMEZONE=$(ask     "Timezone"                          "$(cur TZ)")

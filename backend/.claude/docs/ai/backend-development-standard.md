@@ -130,7 +130,7 @@ Full detail in `instructions/testing.md`.
 
 ## Infrastructure
 
-- Multi-stage Dockerfile: build on `golang:1.26-alpine3.22`, runtime on `alpine:3.22`, non-root user, `HEALTHCHECK` via `scripts/sh/healthcheck.sh`. **Confirm the referenced script exists** before considering the build ready.
+- Multi-stage Dockerfile: build on `golang:1.27-alpine3.23`, runtime on `alpine:3.23`, non-root user, `HEALTHCHECK` via `scripts/sh/healthcheck.sh`. **Confirm the referenced script exists** before considering the build ready.
 - `scripts/sh/build.sh` must point to the Dockerfile's real path. Test `make back-build` before considering a new project ready.
 - `make {build,deploy,test,mocks,swagger}` delegating to `scripts/sh/*.sh` is the standard automation pattern.
 - **CI/CD**: a new project should include a basic pipeline (lint + build + test) from the start. See `new-project-checklist.md`.

@@ -79,7 +79,7 @@ Use as a starting point for a new Go backend service built from this template. I
 
 ## 13. Containers
 
-- [ ] Multi-stage Dockerfile `golang:1.26-alpine3.22` → `alpine:3.22`, non-root user, `HEALTHCHECK` via a real script.
+- [ ] Multi-stage Dockerfile `golang:1.27-alpine3.23` → `alpine:3.23`, non-root user, `HEALTHCHECK` via a real script.
 - [ ] Test `make back-build` and `docker build` locally before considering the project ready.
 
 ## 14. Pipeline and deploy

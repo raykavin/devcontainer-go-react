@@ -1,5 +1,5 @@
 # GO_VERSION, NODE_VERSION and TZ are injected by docker-compose.dev.yml
-ARG GO_VERSION=1.26
+ARG GO_VERSION=1.27
 ARG NODE_VERSION=24
 
 # Node.js binaries come from the official prebuilt image on Docker Hub.

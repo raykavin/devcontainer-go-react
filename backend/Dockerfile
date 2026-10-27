@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine3.22 AS build
+FROM golang:1.27-alpine3.23 AS build
 
 ARG GO_BUILD_ENTRYPOINT="cmd/api/main.go"
 ARG GO_BUILD_FLAGS=""
@@ -19,7 +19,7 @@ COPY . .
 # Build the Go application with CGO enabled
 RUN CGO_ENABLED=1 go build ${GO_BUILD_FLAGS} -o ${APP_NAME} ${GO_BUILD_ENTRYPOINT}
 
-FROM alpine:3.22 AS runtime
+FROM alpine:3.23 AS runtime
 
 ARG APP_NAME="my-app"
 ARG APP_USER_ID=1001

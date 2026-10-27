@@ -4,7 +4,7 @@ Complements `AGENTS.md` and `backend-development-standard.md`.
 
 ## Version and module
 
-- Go 1.26.x is this template's target version.
+- Go 1.27.x is this template's target version.
 - Native Go Modules (`go.mod`/`go.sum`); no vendoring.
 - A local `replace` for your own not-yet-published libraries is acceptable (e.g., `replace github.com/raykavin/gocnab => ./pkg/gocnab`) — but prefer publishing as a versioned module (semver tag) once it stabilizes.
 

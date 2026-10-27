@@ -42,7 +42,7 @@ Asks each option with a sensible default (press Enter to accept):
 
 ```
 Project name [my-app]:
-Go version (1.26/1.25) [1.26]:
+Go version (1.27/1.26) [1.27]:
 Node.js version (24/22/20) [24]:
 Package manager (pnpm/npm) [pnpm]:
 Timezone [America/Belem]:
