@@ -99,7 +99,7 @@ if [ "$OPEN_NOW" = "y" ]; then
 
   if command -v code > /dev/null 2>&1; then
     echo "> Opening VS Code directly in the dev container (build starts automatically)"
-    exec code --folder-uri "vscode-remote://dev-container+${HEX}/workspaces/app"
+    exec code --folder-uri "vscode-remote://dev-container+${HEX}/workspaces"
   else
     echo "'code' CLI not found. Open the folder manually and choose 'Reopen in Container'."
   fi

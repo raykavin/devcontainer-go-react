@@ -4,7 +4,7 @@ set -e
 log() { echo "> $*"; }
 info() { echo "  $*"; }
 
-WORKSPACE="/workspaces/app"
+WORKSPACE="/workspaces"
 BACKEND_DIR="$WORKSPACE/backend"
 FRONTEND_DIR="$WORKSPACE/frontend"
 
@@ -87,7 +87,7 @@ golangci-lint run || true
 log "Setting up frontend (React, package manager: $PKG_MANAGER)"
 
 # node_modules and the Claude Code state are named volumes, owned by root on first creation
-sudo chown -R vscode:vscode "$FRONTEND_DIR/node_modules" /home/vscode/.local/share/pnpm /home/vscode/.claude 2>/dev/null || true
+sudo chown -R vscode:vscode "$FRONTEND_DIR/node_modules" /home/vscode/.pnpm-store /home/vscode/.claude 2>/dev/null || true
 
 if [ "$PKG_MANAGER" = "pnpm" ]; then
   if ! command -v pnpm > /dev/null 2>&1; then
@@ -131,5 +131,5 @@ fi
 
 echo ""
 log "Post-create completed successfully"
-info "Backend:  make back-run   (http://localhost:8080)"
-info "Frontend: make front-dev  (http://localhost:5173)"
+info "Backend:  make back-run   (http://localhost:3000)"
+info "Frontend: make front-dev  (http://localhost:8080)"

@@ -1,6 +1,6 @@
 {
     "name": "my-app DevContainer (Go + React)",
-    "workspaceFolder": "/workspaces/app",
+    "workspaceFolder": "/workspaces",
     "dockerComposeFile": [
         "docker-compose.yml"
     ],
@@ -20,21 +20,21 @@
         "VITE_API_BASE_URL": "http://localhost:8080"
     },
     "forwardPorts": [
-        8080,
-        5173
+        3000,
+        8080
     ],
     "portsAttributes": {
-        "8080": {
+        "3000": {
             "label": "Backend (Go API)",
             "onAutoForward": "notify"
         },
-        "5173": {
+        "8080": {
             "label": "Frontend (Vite)",
             "onAutoForward": "openBrowser",
             "visibility": "public"
         }
     },
-    "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.claude /home/vscode/.local/share/pnpm",
+    "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.claude /home/vscode/.pnpm-store",
     "postCreateCommand": "sh ./.devcontainer/post-create.sh",
     "customizations": {
         "vscode": {

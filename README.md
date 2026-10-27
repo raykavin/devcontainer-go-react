@@ -69,11 +69,11 @@ Copy `.devcontainer/`, `Makefile`, and `AGENTS.md` into any project that follows
 
 ## Development vs Production
 
-|               | Development                                                               | Production                                              |
-| ------------- | ------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Backend image | `mcr.microsoft.com/devcontainers/go` (prebuilt, MCR)                      | `backend/Dockerfile` (multi-stage Alpine, non-root)      |
-| Frontend      | Vite dev server on :5173                                                  | `frontend/Dockerfile` (nginx, non-root)                  |
-| Node.js       | Copied from the official `node` image on Docker Hub (multi-stage, no nvm) | Official `node` image (build stage only)                 |
+|               | Development                                                               | Production                                          |
+| ------------- | ------------------------------------------------------------------------- | --------------------------------------------------- |
+| Backend image | `mcr.microsoft.com/devcontainers/go` (prebuilt, MCR)                      | `backend/Dockerfile` (multi-stage Alpine, non-root) |
+| Frontend      | Vite dev server on :5173                                                  | `frontend/Dockerfile` (nginx, non-root)             |
+| Node.js       | Copied from the official `node` image on Docker Hub (multi-stage, no nvm) | Official `node` image (build stage only)            |
 
 The production Dockerfiles live directly in `backend/` and `frontend/`, so each build's context matches the folder it's building:
 
@@ -106,7 +106,7 @@ Named volumes survive container rebuilds:
 ```
 go_bin        →  /go/bin
 go_pkg        →  /go/pkg
-node_modules  →  /workspaces/app/frontend/node_modules
+node_modules  →  /workspaces/frontend/node_modules
 pnpm_store    →  ~/.local/share/pnpm/store
 claude_code   →  ~/.claude   (Claude Code credentials, settings, history — if installed manually)
 ```

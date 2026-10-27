@@ -1,9 +1,25 @@
 services:
+  postgres:
+    image: postgres:18.6-alpine3.24
+    container_name: postgres_dev
+    networks:
+      - devnet
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - TZ=America/Belem
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+    restart: on-failure
+
   workspace:
     tty: true
-    container_name: dev_my-app
+    container_name: workspaces_dev
     restart: on-failure
-    working_dir: /workspaces/app
+    working_dir: /workspaces
     build:
       context: .
       target: development
@@ -14,15 +30,15 @@ services:
     networks:
       - devnet
     ports:
+      - "3000:3000"
       - "8080:8080"
-      - "5173:5173"
     volumes:
-      - ./../:/workspaces/app:rw
+      - ./../:/workspaces:rw
       # Go caches
       - go_bin:/go/bin:rw
       - go_pkg:/go/pkg:rw
       # Frontend caches
-      - node_modules:/workspaces/app/frontend/node_modules:rw
+      - node_modules:/workspaces/frontend/node_modules:rw
       - pnpm_store:/home/vscode/.local/share/pnpm/store:rw
       # Claude Code state
       - claude_code:/home/vscode/.claude:rw
@@ -33,8 +49,9 @@ networks:
     driver: bridge
 
 volumes:
-  go_pkg:
-  go_bin:
-  node_modules:
-  pnpm_store:
-  claude_code:
+  go_pkg: null
+  go_bin: null
+  node_modules: null
+  pnpm_store: null
+  claude_code: null
+  postgres_data: null
