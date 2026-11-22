@@ -14,14 +14,14 @@ Provide one consistent environment where an AI agent (or you) can build, run, te
 
 ```
 .devcontainer/   Development container: compose, Dockerfile, post-create
-backend/         Go module (API on :8080) + production Dockerfile + auxiliary scripts (scripts/sh)
-frontend/        React + TypeScript (Vite on :5173) + production Dockerfile
+backend/         Go module (API on :3000) + production Dockerfile + auxiliary scripts (scripts/sh)
+frontend/        React + TypeScript (Vite on :8080) + production Dockerfile
 Makefile         Task entry point
 AGENTS.md        Instructions for AI coding agents
 init.sh          Interactive configurator
 ```
 
-The Vite dev server proxies `/api` to the Go backend on `:8080` (see `frontend/vite.config.ts`), so the frontend calls the API without CORS setup during development.
+The Vite dev server proxies `/api` to the Go backend on `:3000` (see `frontend/vite.config.ts`), so the frontend calls the API without CORS setup during development.
 
 ## How to Use
 
@@ -72,7 +72,7 @@ Copy `.devcontainer/`, `Makefile`, and `AGENTS.md` into any project that follows
 |               | Development                                                               | Production                                          |
 | ------------- | ------------------------------------------------------------------------- | --------------------------------------------------- |
 | Backend image | `mcr.microsoft.com/devcontainers/go` (prebuilt, MCR)                      | `backend/Dockerfile` (multi-stage Alpine, non-root) |
-| Frontend      | Vite dev server on :5173                                                  | `frontend/Dockerfile` (nginx, non-root)             |
+| Frontend      | Vite dev server on :8080                                                  | `frontend/Dockerfile` (nginx, non-root)             |
 | Node.js       | Copied from the official `node` image on Docker Hub (multi-stage, no nvm) | Official `node` image (build stage only)            |
 
 The production Dockerfiles live directly in `backend/` and `frontend/`, so each build's context matches the folder it's building:

@@ -3,10 +3,10 @@ application:
   description: "My Application Template"
   version: "1.0.0"
   log_level: "info"
-  health_server_listen_port: 8081
+  health_server_listen_port: 3001 # must match scripts/sh/healthcheck.sh
 
 server:
-  listen_port: 8080
+  listen_port: 3000
   # tls:
   #   certificate: "/etc/myapp/tls.crt"
   #   key: "/etc/myapp/tls.key"
@@ -34,7 +34,7 @@ oidc:
 # origin that serves the frontend must be listed explicitly.
 cors:
   allowed_origins:
-    - "http://localhost:5173"
+    - "http://localhost:8080"
 
 databases:
   local:

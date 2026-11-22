@@ -15,7 +15,7 @@ function App() {
       </button>
       <p className="hint">
         API calls to <code>/api</code> are proxied to the Go backend on{' '}
-        <code>:8080</code> — see <code>vite.config.ts</code>.
+        <code>:3000</code> — see <code>vite.config.ts</code>.
       </p>
     </section>
   )
