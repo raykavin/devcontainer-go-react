@@ -16,8 +16,8 @@ Both toolchains (Go and Node.js) are available in this single container. You can
 
 | Task                    | Command                                      |
 | ----------------------- | -------------------------------------------- |
-| Run backend             | `make back-run` (serves on :8080)            |
-| Run frontend dev server | `make front-dev` (Vite on :5173)             |
+| Run backend             | `make back-run` (serves on :3000)            |
+| Run frontend dev server | `make front-dev` (Vite on :8080)             |
 | Run both                | `make dev`                                   |
 | All tests               | `make test`                                  |
 | All linters             | `make lint`                                  |

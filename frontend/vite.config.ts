@@ -6,11 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    port: 5173,
+    port: 8080,
+    // Fail instead of silently moving to another port: compose publishes exactly 8080
+    strictPort: true,
     proxy: {
       // Forward API calls to the Go backend inside the same container
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:3000',
         changeOrigin: true,
       },
     },
