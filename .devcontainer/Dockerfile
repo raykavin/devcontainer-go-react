@@ -34,6 +34,12 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo ${TZ} > /etc/timezone
 
+# Mount points of the named volumes under $HOME. Creating them here, owned by
+# vscode, makes Docker initialize each new volume (and its parent directories,
+# such as ~/.local/share used by fish) with that ownership instead of root.
+RUN mkdir -p /home/vscode/.claude /home/vscode/.local/share/pnpm/store \
+    && chown -R vscode:vscode /home/vscode/.claude /home/vscode/.local
+
 # fish becomes the default shell in post-create.sh, after the image is built.
 # Changing it here breaks tools that run `su vscode -c "..."` with a POSIX script.
 
