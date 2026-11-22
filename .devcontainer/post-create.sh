@@ -86,8 +86,8 @@ golangci-lint run || true
 
 log "Setting up frontend (React, package manager: $PKG_MANAGER)"
 
-# node_modules and the Claude Code state are named volumes, owned by root on first creation
-sudo chown -R vscode:vscode "$FRONTEND_DIR/node_modules" /home/vscode/.pnpm-store /home/vscode/.claude 2>/dev/null || true
+# node_modules, the pnpm store and the Claude Code state are named volumes, owned by root on first creation
+sh "$WORKSPACE/.devcontainer/post-start.sh"
 
 if [ "$PKG_MANAGER" = "pnpm" ]; then
   if ! command -v pnpm > /dev/null 2>&1; then
@@ -95,6 +95,9 @@ if [ "$PKG_MANAGER" = "pnpm" ]; then
     sudo corepack enable
     corepack prepare pnpm@latest --activate
   fi
+  # Without an explicit store-dir pnpm creates the store on the project's
+  # filesystem (/workspaces/.pnpm-store) instead of the pnpm_store volume
+  pnpm config set store-dir /home/vscode/.local/share/pnpm/store --global
 fi
 
 cd "$FRONTEND_DIR"
@@ -113,6 +116,10 @@ else
   log "Running initial frontend lint"
   "$PKG_MANAGER" run lint || true
 fi
+
+log "Linking fish configuration"
+mkdir -p "$HOME/.config/fish/conf.d"
+ln -sf "$WORKSPACE/.devcontainer/config.fish" "$HOME/.config/fish/conf.d/devcontainer.fish"
 
 # Safe to change the login shell now: everything that runs `su vscode -c` already finished
 log "Setting fish as default shell for vscode user"

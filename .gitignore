@@ -15,6 +15,7 @@ vendor/
 
 # --- Node / Frontend ---
 node_modules/
+.pnpm-store/
 frontend/dist/
 .vite/
 *.tsbuildinfo

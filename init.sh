@@ -35,9 +35,15 @@ ask_choice() {
   done
 }
 
+# In-place sed that works with both GNU sed (Linux) and BSD sed (macOS)
+sed_inplace() {
+  file="$1"; shift
+  sed -i.bak "$@" "$file" && rm -f "$file.bak"
+}
+
 json_set() {
   # json_set KEY VALUE  -> rewrites "KEY": "..." inside devcontainer.json
-  sed -i "s|\"$1\": \"[^\"]*\"|\"$1\": \"$2\"|" "$DEVCONTAINER_JSON"
+  sed_inplace "$DEVCONTAINER_JSON" -e "s|\"$1\": \"[^\"]*\"|\"$1\": \"$2\"|"
 }
 
 # --- current values as defaults ----------------------------------------------
@@ -60,7 +66,7 @@ GIT_BRANCH=$(ask   "Initial branch name"               "$(cur GIT_INIT_DEFAULT_B
 # --- devcontainer.json --------------------------------------------------------
 echo ""
 echo "> Updating $DEVCONTAINER_JSON"
-sed -i "s|\"name\": \"[^\"]*\"|\"name\": \"$PROJECT_NAME DevContainer (Go + React)\"|" "$DEVCONTAINER_JSON"
+sed_inplace "$DEVCONTAINER_JSON" -e "s|\"name\": \"[^\"]*\"|\"name\": \"$PROJECT_NAME DevContainer (Go + React)\"|"
 json_set PROJECT_NAME             "$PROJECT_NAME"
 json_set TZ                       "$TIMEZONE"
 json_set PKG_MANAGER              "$PKG_MANAGER"
@@ -71,10 +77,13 @@ json_set GIT_INIT_DEFAULT_BRANCH  "$GIT_BRANCH"
 
 # --- docker-compose.yml -------------------------------------------------------
 echo "> Updating $COMPOSE_FILE"
-sed -i "s|container_name: .*|container_name: dev_$PROJECT_NAME|" "$COMPOSE_FILE"
-sed -i "s|GO_VERSION: \"[^\"]*\"|GO_VERSION: \"$GO_VERSION\"|"   "$COMPOSE_FILE"
-sed -i "s|NODE_VERSION: \"[^\"]*\"|NODE_VERSION: \"$NODE_VERSION\"|" "$COMPOSE_FILE"
-sed -i "s|TZ: \"[^\"]*\"|TZ: \"$TIMEZONE\"|"                     "$COMPOSE_FILE"
+# container_name is rewritten only inside the workspace service block (from
+# "  workspace:" up to the next 2-space key); postgres keeps its own name
+sed_inplace "$COMPOSE_FILE" \
+  -e "/^  workspace:/,/^  [^ ]/s|container_name: .*|container_name: dev_$PROJECT_NAME|" \
+  -e "s|GO_VERSION: \"[^\"]*\"|GO_VERSION: \"$GO_VERSION\"|" \
+  -e "s|NODE_VERSION: \"[^\"]*\"|NODE_VERSION: \"$NODE_VERSION\"|" \
+  -e "s|TZ: \"[^\"]*\"|TZ: \"$TIMEZONE\"|"
 
 echo ""
 echo "> Done. Summary:"
